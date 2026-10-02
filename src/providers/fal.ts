@@ -1,0 +1,5 @@
+import type {Adapter} from './types';import {request,auth,dataUrl,download,poll,dimensions} from './common';
+export const fal:Adapter={async run(c,r){const endpoint='https://queue.fal.run/'+r.model;const queued=await request(c,{url:endpoint,method:'POST',credential:auth(c,'Authorization','Key '),json:{prompt:r.prompt,...(r.source?{image_url:dataUrl(r.source.png),mask_url:dataUrl(r.source.whiteMask)}:{image_size:dimensions(r.size)}),num_images:1,output_format:'png'}});
+ try{await poll(c,()=>request(c,{url:queued.status_url,credential:auth(c,'Authorization','Key ')}),v=>v.status==='COMPLETED',v=>['FAILED','ERROR'].includes(v.status)?String(v.error??'fal.ai job failed.'):undefined);const result=await request(c,{url:queued.response_url,credential:auth(c,'Authorization','Key ')});return download(c,result.images?.[0]?.url??result.image?.url);}
+ catch(error){if(c.job.signal.aborted&&queued.cancel_url)void c.api.network.request({url:queued.cancel_url,method:'POST',credential:auth(c,'Authorization','Key ')}).catch(()=>{});throw error;}
+}};

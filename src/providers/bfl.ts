@@ -1,0 +1,4 @@
+import type {Adapter} from './types';import {request,auth,base64,download,poll,dimensions,EDIT_GUIDANCE} from './common';
+export const bfl:Adapter={async run(c,r){const masked=r.model.includes('fill');const queued=await request(c,{url:'https://api.bfl.ai/v1/'+r.model,method:'POST',credential:auth(c,'x-key'),json:{prompt:r.prompt+(r.source&&!masked?EDIT_GUIDANCE:''),...(r.source?(masked?{image:base64(r.source.png),mask:base64(r.source.whiteMask)}:{input_image:base64(r.source.png),input_image_2:base64(r.source.whiteMask)}):dimensions(r.size)),output_format:'png'}});
+ const sample=await poll(c,()=>request(c,{url:queued.polling_url??`https://api.bfl.ai/v1/get_result?id=${encodeURIComponent(queued.id)}`,credential:auth(c,'x-key')}),v=>v.status==='Ready'?v.result?.sample:undefined,v=>['Error','Failed','Request Moderated','Content Moderated'].includes(v.status)?String(v.status):undefined);return download(c,sample);
+}};

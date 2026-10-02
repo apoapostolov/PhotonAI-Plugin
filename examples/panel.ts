@@ -1,0 +1,2 @@
+import {definePlugin} from '@photon/plugin-sdk';
+definePlugin(async photon=>{let {count=0}=await photon.settings.get<{count?:number}>();const render=()=>photon.ui.render('main',{controls:[{type:'text',text:`Saved count: ${count}`},{type:'button',id:'increment',label:'Increment'}]});await render();return photon.ui.onEvent(async event=>{if(event.id==='increment'){count++;await photon.settings.set({count});await render();}});});

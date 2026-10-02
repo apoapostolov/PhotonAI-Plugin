@@ -1,0 +1,5 @@
+import type {Adapter} from './types';import {request,auth,dataUrl,download,poll} from './common';
+export const replicate:Adapter={async run(c,r){const queued=await request(c,{url:`https://api.replicate.com/v1/models/${r.model}/predictions`,method:'POST',credential:auth(c),json:{input:{prompt:r.prompt,output_format:'png',...(r.source?{image:dataUrl(r.source.png),mask:dataUrl(r.source.whiteMask)}:{aspect_ratio:r.size==='1536x1024'?'3:2':r.size==='1024x1536'?'2:3':'1:1',num_outputs:1})}}});
+ try{const output=queued.status==='succeeded'?queued.output:await poll(c,()=>request(c,{url:queued.urls.get,credential:auth(c)}),v=>v.status==='succeeded'?v.output:undefined,v=>['failed','canceled'].includes(v.status)?String(v.error??'Replicate job cancelled.'):undefined);return download(c,Array.isArray(output)?output[0]:output);}
+ catch(error){if(c.job.signal.aborted&&queued.urls?.cancel)void c.api.network.request({url:queued.urls.cancel,method:'POST',credential:auth(c)}).catch(()=>{});throw error;}
+}};

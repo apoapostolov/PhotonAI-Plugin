@@ -1,0 +1,4 @@
+import {definePlugin} from '@photon/plugin-sdk';
+import {adapters} from '../src/providers';
+import {providers} from '../src/providers/catalog';
+definePlugin(async photon=>{await photon.ui.render('main',{controls:[{type:'button',id:'connect',label:'Connect OpenAI'},{type:'button',id:'generate',label:'Generate a landscape'}]});return photon.ui.onEvent(async event=>{if(event.id==='connect')await photon.credentials.configure('openai','OpenAI API key','https://api.openai.com');if(event.id==='generate')await photon.jobs.run('Generate example',async job=>{const bytes=await adapters.openai.run({api:photon,job,credential:'openai'},{provider:'openai',model:providers[0].models[0].id,mode:'generate',prompt:'A quiet mountain lake at sunrise',size:'1024x1024',quality:'auto'});job.signal.throwIfAborted();const image=await photon.images.decode(bytes);await photon.documents.applyImage({image,name:'Provider Example',newDocument:true});});});});

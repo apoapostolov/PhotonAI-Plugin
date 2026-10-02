@@ -1,0 +1,25 @@
+{
+  "name": "photon-ai-studio",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Native BYOK image generation, removal, and generative fill plugin for Photon Studio",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/test.mjs",
+    "package": "npm run build && node scripts/package.mjs",
+    "check": "npm run typecheck && npm test && npm run docs:check && npm run examples && npm run package",
+    "examples": "node scripts/examples.mjs",
+    "docs:check": "node scripts/verify-docs.mjs"
+  },
+  "dependencies": {
+    "@photon/plugin-sdk": "file:vendor/photon-plugin-sdk-1.0.0.tgz"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.25.0",
+    "fflate": "^0.8.2",
+    "typescript": "^5.7.2"
+  }
+}
