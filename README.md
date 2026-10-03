@@ -47,3 +47,7 @@ AI edits support RGB documents and regions up to 16 megapixels. Providers operat
 back to the destination RGB space and depth. Model-specific editing support differs; the
 panel identifies prompt-based editing. Remote cancellation is best effort and cannot undo
 provider billing. See [provider setup](docs/providers.md) and [verification](docs/verification.md).
+
+## License
+
+Licensed under the [MIT License](LICENSE). Copyright (c) 2026 Tenzen Studio.

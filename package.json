@@ -1,6 +1,7 @@
 {
   "name": "photon-ai-studio",
   "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "description": "Native BYOK image generation, removal, and generative fill plugin for Photon Studio",
