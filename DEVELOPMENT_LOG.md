@@ -24,5 +24,5 @@ Output size and Quality fill from each provider's published options when the use
 | Midjourney | 1024×1024, 1536×1024, 1024×1536 | Menu hidden |
 | Custom | The sizes and qualities you type | The sizes and qualities you type |
 
-Very low on Ideogram is sent only for an edit. Midjourney still does not call an image API. Host changes required before these flows run on stock Photon are in [Photon host changes](docs/photon-host-changes.md).
+Very low on Ideogram is sent only for an edit. Midjourney still does not call an image API. Host changes required before these flows run on stock Photon are in [Photon host changes](https://github.com/apoapostolov/PhotonAI-Plugin/blob/development/docs/photon-host-changes.md).
 
