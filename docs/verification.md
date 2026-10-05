@@ -10,7 +10,7 @@ Validation on 2026-10-02:
 | Final packaged AI workflow | Passed again: generation, fill, removal, explicit Apply, cancellation and editing during requests |
 | SDK build, Photon typecheck, renderer/Electron builds | Passed |
 
-Tests cover all six provider adapters and custom endpoints using fixtures, queued jobs,
+Tests cover the provider adapters and custom endpoints using fixtures, queued jobs,
 mask conventions, binary outputs, errors and cancellation. Host tests cover manifest validation,
 isolation, permissions, credential scoping, contribution cleanup, fractional selection masks,
 depth/profile conversion, stale revisions and atomic history. Electron tests cover installation,

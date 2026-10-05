@@ -14,6 +14,9 @@ the editor; Photon renders native controls and owns documents, undo, files, cred
 8. [Packaging, debugging and compatibility](development.md)
 9. [Verification and known limits](verification.md)
 
+[Photon host changes for device sign-in](photon-host-changes.md) is a note for the Photon team.
+Device sign-in needs editor and SDK changes. This plugin does not patch Photon.
+
 The authoritative TypeScript declarations are in the bundled `@photon/plugin-sdk` package.
 All examples compile against that exact package. APIs described here are implemented unless
 explicitly listed as deferred. Custom canvas tools, pen input interception, custom cursors,

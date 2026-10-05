@@ -1,2 +1,2 @@
-import {openai} from './openai';import {gemini} from './gemini';import {together} from './together';import {fal} from './fal';import {replicate} from './replicate';import {bfl} from './bfl';import type {Adapter,ProviderId} from './types';
-export const adapters:Record<ProviderId,Adapter>={openai,gemini,together,fal,replicate,bfl,custom:openai};
+import {openai} from './openai';import {gemini} from './gemini';import {together} from './together';import {fal} from './fal';import {replicate} from './replicate';import {bfl} from './bfl';import {codex} from './codex';import {grok,xai} from './grok';import {ideogram} from './ideogram';import {midjourney} from './midjourney';import type {Adapter,ProviderId} from './types';
+export const adapters:Record<ProviderId,Adapter>={openai,codex,gemini,midjourney,ideogram,bfl,fal,replicate,together,xai,grok,custom:openai};

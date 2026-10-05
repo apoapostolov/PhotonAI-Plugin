@@ -1,8 +1,8 @@
 # Photon AI Studio
 
 A native Photon Studio plugin for **BYOK image generation, AI object removal, and generative fill**.
-Bring your own OpenAI, Gemini, Together AI, fal.ai, Replicate, or Black Forest Labs API key;
-custom OpenAI-compatible services are supported too. Images go directly from your device to
+Bring your own OpenAI, Gemini, Ideogram, Black Forest Labs, fal.ai, Replicate, Together AI, or X API key,
+or sign in to Codex and Grok. Custom OpenAI-compatible services are supported too. Images go directly from your device to
 that provider. Photon does not supply credits or proxy requests through a Tenzen account.
 
 ## Build and install

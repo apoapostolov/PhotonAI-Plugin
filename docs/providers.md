@@ -8,17 +8,48 @@ when a key, provider or model changes.
 | Provider | API / auth | Generation | Editing |
 | --- | --- | --- | --- |
 | OpenAI | Images API; Bearer | GPT Image profiles | Multipart source and transparent-alpha mask |
+| Codex | ChatGPT device sign-in, then `images/generations` and `images/edits`; Bearer | GPT Image Flare and Sunburst | Source plus white-mask reference, prompt-based |
 | Gemini | generateContent; x-goog-api-key | Flash Image | Source plus white-mask reference, prompt-based |
-| Together AI | images/generations; Bearer | FLUX.2 | FLUX.2 Pro reference images, prompt-based |
+| Midjourney | No official image API | — | — |
+| Ideogram | `x-api-key` | Ideogram 4.5 | Precise edit; black mask marks the area to change |
+| Black Forest Labs | asynchronous API; x-key | FLUX.2 Pro | FLUX Pro Fill mask, or FLUX.2 prompt/reference edit |
 | fal.ai | queue; Authorization: Key | FLUX Dev | FLUX Pro Fill source + white mask |
 | Replicate | model predictions; Bearer | FLUX Dev | FLUX Fill Pro source + white mask |
-| Black Forest Labs | asynchronous API; x-key | FLUX.2 Pro | FLUX Pro Fill mask, or FLUX.2 prompt/reference edit |
+| Together AI | images/generations; Bearer | FLUX.2 | FLUX.2 Pro reference images, prompt-based |
+| X API | `https://api.x.ai` images; Bearer API key | Grok Imagine 2.0 and Grok Imagine | Source plus white-mask reference, prompt-based |
+| Grok | xAI device sign-in or API key; Bearer | Grok Imagine 2.0 and Grok Imagine | Source plus white-mask reference, prompt-based |
 | Custom | compatible Images API; Bearer | User-supplied model | Optional compatible multipart mask endpoint |
 
-The bundled versioned catalog selects models by supported operation; it does not treat every
-provider model as image-capable. Actual account availability can differ. Update catalog entries
-against official API documentation when changing models. The panel shows only supported
-size/quality controls. The API keys remain provider-specific.
+The bundled catalog is the fallback list. After a successful Codex or Grok sign-in, and after
+an API key is saved for OpenAI, Gemini, Together, X API, Grok, or a custom OpenAI-compatible
+endpoint, AI Studio loads that account's image models into the model dropdown. The list is
+cached in plugin settings for one day and then loaded again, so a model released by the
+provider can appear without a plugin update. The cache stores model ids and labels only.
+Access tokens, refresh tokens, and API keys are not written into it. If the account list
+cannot be loaded, the provider error is shown and the previous cache or the bundled catalog stays in the dropdown.
+A ChatGPT sign-in reads the account model catalog. The dropdown then lists the visible models that accept or produce images, using the account's own names. A sign-in is not sent to the OpenAI model list, because that list requires the `api.model.read` scope. The bundled models remain only until the account list is saved.
+
+OpenAI, Codex, and custom endpoints use their model list and keep GPT Image and DALL·E ids.
+Codex reads the ChatGPT model catalog. An API key for Codex can also read the OpenAI model list. Grok and X API use
+`GET https://api.x.ai/v1/image-generation-models`. Gemini keeps image-generation model ids
+from `v1beta/models`. Together keeps models whose type is `image`. Ideogram, Black Forest
+Labs, fal.ai, Replicate, and Midjourney keep the bundled catalog. The Output size and Quality menus are filled from the sizes and quality values each
+provider publishes for that model. This happens when the account model list loads
+after sign-in or when a saved sign-in is restored, and again when that provider is
+selected. A saved list from an earlier version picks up the current choices on the
+next panel load. A model that can accept an image but does not generate one, such
+as a Codex chat model, leaves both menus empty. Midjourney has no official image
+API, so it has no quality menu and its size menu is not sent anywhere. Custom
+endpoints keep the sizes and qualities entered in the panel. The API keys remain
+provider-specific.
+
+Codex and Grok sign-in follows the public device-code flows: Codex uses OpenAI device authorization and then the ChatGPT Codex image routes; Grok uses the xAI device endpoint and rewrites the browser page to `accounts.x.ai`. X API uses the same Grok Imagine models with an xAI API key and does not open a sign-in dialog. The sign-in dialog shows the user code and verification page. Status lines are `Requesting a sign-in code…`, `Waiting for approval…`, and `Signed in.` The access token, refresh token, and device secret are not written into those lines. Cancel clears the attempt. A signed-in session is stored by Photon for the next launch and refreshed shortly before it expires. The access token, refresh token, and device secret are not written into plugin settings.
+
+Stock Photon Studio 0.1.41 cannot finish that dialog. The required editor and SDK changes are in [Photon host changes](photon-host-changes.md), for the Photon team. This plugin does not patch Photon.
+
+Ideogram's published header is `Api-Key`. This plugin stores the key in Photon's credential vault and sends it as `x-api-key`, which is a header that vault can attach. The precise-edit mask uses black for the selected region and white for the region to keep.
+
+Midjourney publishes prompts and version parameters for its app. It does not publish an image generation endpoint, so AI Studio does not send Midjourney requests.
 
 ## Custom endpoints
 
@@ -53,3 +84,6 @@ and documented setup. See `examples/provider.ts`. Test malformed responses, no-i
 - [Replicate predictions](https://replicate.com/docs/topics/predictions/create-a-prediction)
 - [BFL generation/polling](https://docs.bfl.ai/quick_start/generating_images)
 - [BFL image editing](https://docs.bfl.ai/flux_2/flux2_image_editing)
+- [xAI image generation](https://docs.x.ai/docs/guides/image-generations)
+- [Ideogram 4.5 generate](https://developer.ideogram.ai/api-reference/images/generate/ideogram-4-5)
+- [Ideogram 4.5 precise edit](https://developer.ideogram.ai/api-reference/images/precise-edit/ideogram-4-5)

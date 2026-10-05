@@ -3,15 +3,27 @@ import {providers,modelsFor} from './providers/catalog';
 import {adapters} from './providers';
 import type {Mode,ProviderId,Model,GenerateRequest,ImageInput} from './providers/types';
 import {REMOVE_PROMPT,base64} from './providers/common';
-interface Settings {provider:ProviderId;models:Partial<Record<ProviderId,string>>;customBase:string;customModel:string;customEdit:boolean;customSizes:string;customQualities:string;customMaxEdge:number;}
+import {ideogramMask} from './providers/ideogram';
+import {startDeviceLogin,completeDeviceLogin,refreshSession,type OAuthProvider,type OAuthSession} from './providers/oauth';
+import {clearOAuthSession,loadOAuthSession,saveOAuthSession} from './providers/session';
+import {MODEL_CACHE_MS,cachedBundledModels,listsModels,loadProviderModels,modelCacheStale,sanitizeModelCache,type ModelCacheEntry} from './providers/model-list';
+import {applyOutputOptions} from './providers/output-options';
+import {signInDialog,updateSignInDialog} from './signin';
+import {loadAccountQuota} from './providers/quota';
+interface Settings {provider:ProviderId;models:Partial<Record<ProviderId,string>>;customBase:string;customModel:string;customEdit:boolean;customSizes:string;customQualities:string;customMaxEdge:number;modelCache:Partial<Record<ProviderId,ModelCacheEntry>>;}
 interface Result {bytes:Uint8Array;image:ImagePixels;capture?:Capture;name:string;mode:Mode;target?:{documentId:string;revision:number};}
 export async function activate(api:PhotonApi){
-  let settings:Settings={provider:'openai',models:{},customBase:'https://api.openai.com/v1',customModel:'',customEdit:true,customSizes:'1024x1024,1536x1024,1024x1536',customQualities:'',customMaxEdge:2048,...await api.settings.get<Partial<Settings>>()};
+  let settings:Settings={provider:'openai',models:{},customBase:'https://api.openai.com/v1',customModel:'',customEdit:true,customSizes:'1024x1024,1536x1024,1024x1536',customQualities:'',customMaxEdge:2048,modelCache:{},...await api.settings.get<Partial<Settings>>()};
+  settings.modelCache=sanitizeModelCache(settings.modelCache);
   if(!providers.some(p=>p.id===settings.provider))settings.provider='openai';
   let mode:Mode='generate',prompt='',size='1024x1024',quality='auto',busy=false,error='',credential=false,persistent=true,result:Result|undefined,insert=false,hasSelection=false;
-  const subscriptions:{dispose():void}[]=[];let disposed=false;
+  const sessions:Partial<Record<'codex'|'grok',OAuthSession>>={};const quotas:Partial<Record<'codex'|'grok',string>>={};
+  const subscriptions:{dispose():void}[]=[];let disposed=false;const listAbort=new AbortController();let refreshTimer:ReturnType<typeof setTimeout>|undefined;let quotaTimer:ReturnType<typeof setTimeout>|undefined;let quotaBusy=false;
   const provider=()=>providers.find(p=>p.id===settings.provider)!;
-  const models=():Model[]=>settings.provider==='custom'?[{id:settings.customModel,label:settings.customModel||'Enter a model ID',generate:true,edit:settings.customEdit?'mask':false,maxEdge:Math.min(8192,Math.max(64,settings.customMaxEdge||2048)),sizes:settings.customSizes.split(',').map(v=>v.trim()).filter(v=>/^[1-9][0-9]{1,3}x[1-9][0-9]{1,3}$/.test(v)),qualities:settings.customQualities.split(',').map(v=>v.trim()).filter(Boolean)}]:modelsFor(provider(),mode);
+  const customModel=():Model=>({id:settings.customModel,label:settings.customModel||'Enter a model ID',generate:true,edit:settings.customEdit?'mask':false,maxEdge:Math.min(8192,Math.max(64,settings.customMaxEdge||2048)),sizes:settings.customSizes.split(',').map(v=>v.trim()).filter(v=>/^[1-9][0-9]{1,3}x[1-9][0-9]{1,3}$/.test(v)),qualities:settings.customQualities.split(',').map(v=>v.trim()).filter(Boolean)});
+  const models=():Model[]=>{if(settings.provider==='custom')return [customModel()];const cached=settings.modelCache[settings.provider]?.models;return modelsFor({...provider(),models:cached?.length?cached:provider().models},mode).map(item=>applyOutputOptions(settings.provider,item));};
+  const sizeLabel=(value:string)=>{const pixels=/^(\d+)x(\d+)$/.exec(value);if(pixels)return pixels[1]+' × '+pixels[2];return value==='auto'?'Auto':value;};
+  const qualityLabel=(value:string):string=>{const compound=/^([a-z]+(?:_[a-z]+)?)@([0-9.]+k)$/i.exec(value);if(compound)return qualityLabel(compound[1])+' · '+compound[2].toUpperCase();if(value==='xhigh')return 'Extra high';if(value==='hd')return 'HD';if(/^[0-9.]+k$/i.test(value))return value.toUpperCase();return value.split('_').map(part=>part?part[0].toUpperCase()+part.slice(1):part).join(' ');};
   const model=()=>models().find(m=>m.id===settings.models[settings.provider])??models()[0];
   const keyId=()=>settings.provider;
   const endpoint=()=>settings.provider==='custom'?new URL(settings.customBase).origin:provider().origin;
@@ -19,26 +31,44 @@ export async function activate(api:PhotonApi){
   const clearResult=async()=>{if(result?.capture)await api.documents.release(result.capture.token).catch(()=>{});result=undefined;};
   const save=()=>api.settings.set(settings as unknown as Record<string,unknown>);
   const refreshCredential=async()=>{const info=await api.credentials.status(keyId());credential=info.configured;try{credential=credential&&info.origin===endpoint();}catch{credential=false;}persistent=info.persistent;};
+  const listContext=(id:ProviderId)=>({api,credential:id,job:{id:'models',signal:listAbort.signal,progress:async()=>{}}});
+  const refreshModels=async(id:ProviderId,force:boolean)=>{
+    if(disposed||!listsModels(id))return;const current=settings.modelCache[id];if(!force&&!modelCacheStale(current)&&!cachedBundledModels(id,current))return;
+    const session=id==='codex'||id==='grok'?sessions[id]:undefined;
+    if(!session){const info=await api.credentials.status(id);let origin='';try{origin=id==='custom'?new URL(settings.customBase).origin:providers.find(item=>item.id===id)!.origin;}catch{return;}if(!info.configured||info.origin!==origin)return;}
+    let timer:ReturnType<typeof setTimeout>|undefined;const timeout=new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new PluginError('TIMEOUT','The model list took too long.')),20_000);});
+    try{const loaded=await Promise.race([loadProviderModels(listContext(id),id,{accessToken:session?.accessToken,accountId:session?.accountId,baseUrl:id==='custom'?settings.customBase:undefined}),timeout]);if(disposed)return;if(!loaded.length)throw new PluginError('MODEL_UNAVAILABLE','The account did not return any image models.');const selected=settings.models[id];if(selected&&!loaded.some(item=>item.id===selected))delete settings.models[id];settings.modelCache={...settings.modelCache,[id]:{fetchedAt:Date.now(),models:loaded}};await save();}
+    finally{clearTimeout(timer);}
+  };
+  const armRefresh=()=>{clearTimeout(refreshTimer);if(disposed)return;const entry=settings.modelCache[settings.provider];const delay=entry?Math.max(60_000,entry.fetchedAt+MODEL_CACHE_MS-Date.now()):MODEL_CACHE_MS;const handle=setTimeout(()=>{void refreshModels(settings.provider,false).finally(armRefresh);},delay);(handle as {unref?:()=>void}).unref?.();refreshTimer=handle;};
+  const restoreSessions=async()=>{for(const id of ['codex','grok'] as const){const saved=await loadOAuthSession(id);if(!saved)continue;try{const current=saved.refreshToken&&(!saved.expiresAt||saved.expiresAt<Date.now()+60_000)?await refreshSession(listContext(id),id,saved):saved;sessions[id]=current;if(current!==saved)await saveOAuthSession(id,current);}catch{delete sessions[id];await clearOAuthSession(id);}}};
+  const refreshQuota=async(id:'codex'|'grok')=>{const session=sessions[id];if(!session){delete quotas[id];return;}try{const line=await loadAccountQuota(listContext(id),id,session);if(!disposed&&line)quotas[id]=line;}catch{/* Keep the last quota line. */}};
+  const refreshShownQuota=()=>{if(disposed||quotaBusy||settings.provider!=='codex'&&settings.provider!=='grok'||!sessions[settings.provider])return;quotaBusy=true;void refreshQuota(settings.provider).then(()=>{if(!disposed)return publish();}).finally(()=>{quotaBusy=false;});};
+  const armQuota=()=>{clearTimeout(quotaTimer);if(disposed)return;const handle=setTimeout(()=>{refreshShownQuota();armQuota();},10*60*1000);(handle as {unref?:()=>void}).unref?.();quotaTimer=handle;};
   const publish=async()=>{
     if(disposed)return;const m=model();if(m?.sizes?.length&&!m.sizes.includes(size))size=m.sizes[0];if(m?.qualities?.length&&!m.qualities.includes(quality))quality=m.qualities[0];const controls:Control[]=[
-      {type:'text',text:'Create and edit with your own AI accounts. Provider requests are billed to your API key.'},
       {type:'tabs',id:'mode',label:'Image operation',value:mode,disabled:busy,options:[{value:'generate',label:'Generate'},{value:'remove',label:'Remove'},{value:'fill',label:'Fill'}]},
       {type:'select',id:'provider',label:'Provider',value:settings.provider,disabled:busy,options:providers.map(p=>({value:p.id,label:p.label}))}
     ];
+    const oauthId=settings.provider==='codex'||settings.provider==='grok'?settings.provider:undefined;const oauthSession=oauthId?sessions[oauthId]:undefined;const signedIn=!!oauthSession||credential;
+    if(settings.provider==='midjourney')controls.push({type:'text',text:'Midjourney does not publish an official image API. Create the image there, then open it in Photon.'});
+    else if(oauthId){if(oauthSession)controls.push({type:'button',id:'forgetLogin',label:'Forget Login',disabled:busy});else controls.push({type:'button',id:'configure',label:oauthId==='codex'?'Sign in with Codex':'Sign in with Grok',disabled:busy});if(oauthId==='grok')controls.push({type:'button',id:'apikey',label:credential?'Change API key':'Use an API key',disabled:busy});if(oauthSession){if(quotas[oauthId])controls.push({type:'text',text:quotas[oauthId]});}else controls.push({type:'text',text:credential?(persistent?'API key saved securely on this device.':'API key available for this session.'):'Sign in with the device code. The access token is not shown.'});if(error)controls.push({type:'text',tone:'danger',text:error});}
+    else controls.push({type:'button',id:'configure',label:credential?'Change API key':'Connect provider',disabled:busy},{type:'text',text:credential?(persistent?'API key saved securely on this device.':'API key available for this session.'):'Connect this provider to start.'});
+    if(settings.provider!=='midjourney'&&credential)controls.push({type:'button',id:'forget',label:'Forget API key',disabled:busy});
     if(settings.provider==='custom')controls.push({type:'input',id:'customBase',label:'API base URL',value:settings.customBase,disabled:busy,description:'An OpenAI-compatible API base, including /v1 when required.'},{type:'input',id:'customModel',label:'Model ID',value:settings.customModel,disabled:busy},{type:'input',id:'customSizes',label:'Supported sizes',value:settings.customSizes,disabled:busy,description:'Comma-separated widthxheight values; leave blank to use provider defaults.'},{type:'input',id:'customQualities',label:'Supported qualities',value:settings.customQualities,disabled:busy,description:'Comma-separated API values; leave blank if unsupported.'},{type:'number',id:'customMaxEdge',label:'Maximum reference edge',value:settings.customMaxEdge,min:64,max:8192,disabled:busy},{type:'checkbox',id:'customEdit',label:'This model supports masked image edits',value:settings.customEdit,disabled:busy});
-    else controls.push({type:'select',id:'model',label:'Model',value:m?.id??'',disabled:busy,options:models().map(m=>({value:m.id,label:m.label}))});
-    controls.push({type:'button',id:'configure',label:credential?'Change API key':'Connect provider',disabled:busy},{type:'text',text:credential?(persistent?'API key saved securely on this device.':'API key available for this session.'): 'Connect this provider to start.'});
-    if(credential)controls.push({type:'button',id:'forget',label:'Forget API key',disabled:busy});
+    else controls.push({type:'select',id:'model',label:'Model',value:m?.id??'',disabled:busy,options:models().map(item=>({value:item.id,label:item.label}))});
+    const accountModels=settings.provider==='custom'?settings.modelCache.custom?.models??[]:[];
+    if(accountModels.length)controls.push({type:'select',id:'accountModel',label:'Account models',value:accountModels.some(item=>item.id===settings.customModel)?settings.customModel:'',disabled:busy,options:accountModels.map(item=>({value:item.id,label:item.label}))});
     if(mode!=='generate')controls.push({type:'text',text:hasSelection?'The current selection defines the editable region.':'Make a selection in the document to continue.'},...(m?.edit==='prompt'?[{type:'text' as const,text:'Prompt-based editing: this model interprets the mask as a reference. Photon preserves pixels outside your selection when you apply.'}]:[]));
     if(mode!=='generate'&&!m?.edit)controls.push({type:'text',tone:'danger',text:'This model does not support image editing. Choose a model with edit support.'});
     if(mode!=='remove')controls.push({type:'textarea',id:'prompt',label:mode==='fill'?'Describe the fill':'Describe your image',value:prompt,disabled:busy});
-    if(m?.sizes?.length)controls.push({type:'select',id:'size',label:'Output size',value:size,disabled:busy,options:m.sizes.map(value=>({value,label:value.replace('x',' × ')}))});
-    if(m?.qualities?.length)controls.push({type:'select',id:'quality',label:'Quality',value:quality,disabled:busy,options:m.qualities.map(value=>({value,label:value[0].toUpperCase()+value.slice(1)}))});
+    if(m?.sizes?.length)controls.push({type:'select',id:'size',label:'Output size',value:size,disabled:busy,options:m.sizes.map(value=>({value,label:sizeLabel(value)}))});
+    if(m?.qualities?.length)controls.push({type:'select',id:'quality',label:'Quality',value:quality,disabled:busy,options:m.qualities.map(value=>({value,label:qualityLabel(value)}))});
     if(mode==='generate')controls.push({type:'checkbox',id:'insert',label:'Insert into the current document',value:insert,disabled:busy});
-    if(error)controls.push({type:'text',tone:'danger',text:error});
-    controls.push({type:'button',id:'run',tone:'primary',label:busy?'Working…':result?'Regenerate':mode==='generate'?'Generate Image':mode==='remove'?'Remove Selection':'Generate Fill',disabled:busy||!credential||!m?.id||(mode==='generate'?!m?.generate:!m?.edit)||mode!=='generate'&&!hasSelection||mode!=='remove'&&!prompt.trim()});
+    if(error&&!oauthId)controls.push({type:'text',tone:'danger',text:error});
+    controls.push({type:'button',id:'run',tone:'primary',label:busy?'Working…':result?'Regenerate':mode==='generate'?'Generate Image':mode==='remove'?'Remove Selection':'Generate Fill',disabled:busy||settings.provider==='midjourney'||!signedIn||!m?.id||(mode==='generate'?!m?.generate:!m?.edit)||mode!=='generate'&&!hasSelection||mode!=='remove'&&!prompt.trim()});
     if(result)controls.push({type:'group',label:'Result preview',children:[{type:'image',label:result.name,src:'data:image/png;base64,'+base64(result.bytes)},{type:'text',text:'Apply creates a new layer with one undo step. Your original layers stay editable.'},{type:'button',id:'apply',tone:'primary',label:'Apply',disabled:busy},{type:'button',id:'discard',label:'Discard preview',disabled:busy},{type:'button',id:'export',label:'Save result as PNG…',disabled:busy}]});
-    await api.ui.render('ai',{title:'AI Studio',controls} satisfies PanelModel);
+    await api.ui.render('ai',{title:'AI',controls} satisfies PanelModel);
   };
   const run=async()=>{
     if(busy)return;const selected=model();if(!selected?.id)throw new PluginError('MODEL_UNAVAILABLE','Choose an image model.');
@@ -52,11 +82,12 @@ export async function activate(api:PhotonApi){
           await job.progress('Capturing selection…');capture=await api.documents.capture({selection:true,padding:64});job.signal.throwIfAborted();
           const encoded=await api.images.encode(capture,{maxEdge:selected.maxEdge});
           const maskPixels=new Uint8Array(capture.width*capture.height*4);for(let i=0;i<capture.mask!.length;i++){maskPixels[i*4]=maskPixels[i*4+1]=maskPixels[i*4+2]=capture.mask![i];maskPixels[i*4+3]=255;}
-          const maskImage={width:capture.width,height:capture.height,pixels:maskPixels};
-          const white=await api.images.encode(maskImage,{maxEdge:selected.maxEdge,mask:'white'}),alpha=await api.images.encode(maskImage,{maxEdge:selected.maxEdge,mask:'alpha'});
+          const maskImage={width:capture.width,height:capture.height,pixels:requestedProvider==='ideogram'?ideogramMask(capture.mask!):maskPixels};
+          const white=await api.images.encode(maskImage,requestedProvider==='ideogram'?{maxEdge:selected.maxEdge}:{maxEdge:selected.maxEdge,mask:'white'}),alpha=await api.images.encode({width:capture.width,height:capture.height,pixels:maskPixels},{maxEdge:selected.maxEdge,mask:'alpha'});
           source={png:encoded.bytes,whiteMask:white.bytes,alphaMask:alpha.bytes,width:encoded.width,height:encoded.height};
         }
-        const request:GenerateRequest={provider:requestedProvider,mode:requestedMode,model:selected.id,prompt:requestedMode==='remove'?REMOVE_PROMPT:prompt.trim(),size:selected.sizes?.length?size:requestedProvider==='custom'?'':'1024x1024',quality:selected.qualities?.length?quality:'',source,...(requestedProvider==='custom'?{baseUrl:settings.customBase}:{})};
+        const oauthProvider=requestedProvider==='codex'||requestedProvider==='grok'?requestedProvider:undefined;let session=oauthProvider?sessions[oauthProvider]:undefined;if(oauthProvider&&session?.refreshToken&&session.expiresAt&&session.expiresAt<Date.now()+60_000){session=await refreshSession({api,job,credential:oauthProvider},oauthProvider,session);sessions[oauthProvider]=session;}
+        const request:GenerateRequest={provider:requestedProvider,mode:requestedMode,model:selected.id,prompt:requestedMode==='remove'?REMOVE_PROMPT:prompt.trim(),size:selected.sizes?.length?size:requestedProvider==='custom'?'':'1024x1024',quality:selected.qualities?.length?quality:'',source,...(requestedProvider==='custom'?{baseUrl:settings.customBase}:{}),...(session?{accessToken:session.accessToken,accountId:session.accountId}:{})};
         await job.progress('Sending to '+provider().label+'…');const bytes=await adapters[requestedProvider].run({api,job,credential:keyId()},request);job.signal.throwIfAborted();
         await job.progress('Preparing preview…');const image=await api.images.decode(bytes,capture?{width:capture.bounds.width,height:capture.bounds.height}:undefined);job.signal.throwIfAborted();const encoded=await api.images.encode(image,{maxEdge:8192});
         return {bytes:encoded.bytes,image,capture,name:requestedMode==='generate'?'AI Generated Image':requestedMode==='remove'?'AI Remove':'Generative Fill',mode:requestedMode,target:target?{documentId:target.id,revision:target.revision}:undefined} satisfies Result;
@@ -68,15 +99,18 @@ export async function activate(api:PhotonApi){
   const onEvent=async(event:{id:string;value?:string|number|boolean})=>{
     if(busy)return;error='';
     try{
-      if(event.id==='configure'){busy=true;await publish();if(settings.provider==='custom')await api.network.allowEndpoint(endpoint());const info=await api.credentials.configure(keyId(),provider().label+' API key',endpoint());credential=info.configured;persistent=info.persistent;busy=false;}
+      if(event.id==='configure'&&(settings.provider==='codex'||settings.provider==='grok')){busy=true;await publish();const providerId=settings.provider;const controller=new AbortController();const context={api,credential:providerId,job:{id:'oauth',signal:controller.signal,progress:async()=>{}}};const pending=await startDeviceLogin(context,providerId);let tokens:OAuthSession|undefined,failure:unknown;const polling=completeDeviceLogin(context,pending).then(async value=>{tokens=value;await updateSignInDialog(signInDialog(providerId,pending,true));}).catch(async reason=>{failure=reason;await updateSignInDialog(signInDialog(providerId,pending,false,reason instanceof Error?reason.message:'Sign-in did not finish.'));});const choice=await api.ui.dialog(signInDialog(providerId,pending,false));if(!choice||choice.id==='cancel'){controller.abort();await polling.catch(()=>{});if(failure)throw failure instanceof Error?failure:new PluginError('AUTHENTICATION','Sign-in did not finish.');throw new PluginError('CANCELLED','Sign-in cancelled.');}await polling;if(!tokens)throw failure instanceof Error?failure:new PluginError('AUTHENTICATION','Sign-in did not finish.');sessions[providerId]=tokens;let saveFailure:unknown;try{await saveOAuthSession(providerId,tokens);}catch(reason){saveFailure=reason;}await refreshModels(providerId,true);armRefresh();await refreshQuota(providerId);if(saveFailure)throw saveFailure instanceof Error?saveFailure:new PluginError('AUTHENTICATION','Sign-in could not be saved for the next launch.');busy=false;}
+      else if(event.id==='configure'||event.id==='apikey'){busy=true;await publish();if(settings.provider==='custom')await api.network.allowEndpoint(endpoint());const info=await api.credentials.configure(keyId(),provider().label+' API key',endpoint());credential=info.configured;persistent=info.persistent;await refreshModels(settings.provider,true);armRefresh();busy=false;}
+      else if(event.id==='forgetLogin'&&(settings.provider==='codex'||settings.provider==='grok')){const oauthId=settings.provider as OAuthProvider;delete sessions[oauthId];delete quotas[oauthId];await clearOAuthSession(oauthId);const modelCache={...settings.modelCache};delete modelCache[oauthId];settings.modelCache=modelCache;await save();}
       else if(event.id==='forget'){await api.credentials.delete(keyId());credential=false;}
       else if(event.id==='run'){await run();return;}
       else if(event.id==='apply'&&result){busy=true;await publish();await api.documents.applyImage({image:result.image,name:result.name,captureToken:result.capture?.token,documentId:result.target?.documentId,expectedRevision:result.target?.revision,newDocument:result.mode==='generate'&&!result.target});await clearResult();busy=false;await refreshContext();}
       else if(event.id==='discard')await clearResult();
       else if(event.id==='export'&&result){const file=await api.files.pick({save:true,name:result.name+'.png'});if(file)await api.files.write(file,result.bytes);}
-      else if(event.id==='provider'){settings.provider=event.value as ProviderId;await refreshCredential();await save();}
+      else if(event.id==='provider'){settings.provider=event.value as ProviderId;await refreshCredential();await refreshModels(settings.provider,false);if(settings.provider==='codex'||settings.provider==='grok')await refreshQuota(settings.provider);armRefresh();await save();}
       else if(event.id==='mode'){mode=event.value as Mode;await refreshContext();}
       else if(event.id==='model'){settings.models[settings.provider]=String(event.value);await save();}
+      else if(event.id==='accountModel'){settings.customModel=String(event.value??'');settings.models.custom=settings.customModel;await save();}
       else if(event.id==='prompt')prompt=String(event.value??'');
       else if(event.id==='size')size=String(event.value);
       else if(event.id==='quality')quality=String(event.value);
@@ -89,7 +123,7 @@ export async function activate(api:PhotonApi){
   };
   subscriptions.push(api.ui.onEvent(onEvent));
   for(const command of ['generate','remove','fill'] as const)subscriptions.push(api.commands.on(command,async()=>{if(!busy){mode=command;error='';await refreshContext();await publish();}}));
-  subscriptions.push(api.events.subscribe(event=>{if(event.type==='documentChanged')void refreshContext().then(publish).catch(()=>{});}));
-  await refreshCredential();await refreshContext();await publish();
-  return {dispose(){disposed=true;for(const subscription of subscriptions)subscription.dispose();void clearResult();}};
+  subscriptions.push(api.events.subscribe(event=>{if(event.type==='documentChanged')void refreshContext().then(publish).catch(()=>{});if(event.type==='visibility'&&event.visible===true)refreshShownQuota();}));
+  await refreshCredential();await restoreSessions();await refreshContext();await publish();armQuota();const startupQuota=settings.provider==='codex'||settings.provider==='grok'?refreshQuota(settings.provider):Promise.resolve();void Promise.all([refreshModels(settings.provider,false).then(()=>{if(!disposed)armRefresh();}),startupQuota]).then(()=>{if(!disposed)return publish();}).catch(reason=>{if(disposed)return;error=reason instanceof Error?reason.message:String(reason);return publish();});
+  return {dispose(){disposed=true;clearTimeout(refreshTimer);clearTimeout(quotaTimer);listAbort.abort();for(const subscription of subscriptions)subscription.dispose();void clearResult();}};
 }
