@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Card action icons (2026-10-06)
+
+Library, History, and Templates cards now use the pen, trash, and magic wand
+SVGs from `svg/` for Edit, Delete, and Use. The edit control still changes to
+a checkmark when saving. SVG markup is bundled into the panel script, so the
+installed plugin needs no separate icon files or new Photon host patch. CSS
+uses `currentColor` and existing Photon skin tokens, including the red
+two-click delete state. Font Awesome attribution ships in
+`THIRD_PARTY_NOTICES.txt` with the plugin package.
+
 ### Library interaction follow-up (2026-10-06)
 
 The empty Save prompt message now appears immediately below the prompt box

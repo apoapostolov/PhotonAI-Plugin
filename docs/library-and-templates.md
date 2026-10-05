@@ -4,7 +4,7 @@ AI Studio uses a custom Photon panel. The Library and Templates buttons sit on o
 
 ## Library
 
-Save the current prompt with the icon inside the prompt field. Saved prompts and History have separate tabs in Library. Folder names are entered directly in the sidebar. To delete a folder, prompt, history entry, or template, click its trash glyph twice within two seconds. The first click turns it red; clicking elsewhere or waiting two seconds cancels deletion. Each submitted provider request records the full text sent to the provider, including expanded template context. Similar revisions appear as a stack; expand a stack to edit, delete, reorder, or reuse an earlier version. Use copies a prompt into the visible prompt field and closes Library.
+Save the current prompt with the icon inside the prompt field. Saved prompts and History have separate tabs in Library. Folder names are entered directly in the sidebar. Card actions use the pen, trash, and magic wand icons from `svg/`; the icons follow Photon skin colors. The edit action changes to a checkmark while saving. To delete a folder, prompt, history entry, or template, click its trash glyph twice within two seconds. The first click turns it red; clicking elsewhere or waiting two seconds cancels deletion. Each submitted provider request records the full text sent to the provider, including expanded template context. Similar revisions appear as a stack; expand a stack to edit, delete, reorder, or reuse an earlier version. Use copies a prompt into the visible prompt field and closes Library.
 
 ## Templates
 

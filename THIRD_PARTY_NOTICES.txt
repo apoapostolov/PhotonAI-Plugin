@@ -1,0 +1,9 @@
+Font Awesome Free 7.3.1 icons
+Copyright 2026 Fonticons, Inc.
+Source: https://fontawesome.com/
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+The pen, trash, and wand-magic-sparkles SVG icons are bundled into the
+Library and Templates card controls. Their shapes are unmodified. The
+plugin sizes and colors them through CSS to match the Photon Studio skin.

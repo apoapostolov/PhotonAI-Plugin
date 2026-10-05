@@ -1,9 +1,12 @@
 import type {PhotonApi,PanelModel,Control,UiEvent} from '@photon/plugin-sdk';
 import {ROOT_FOLDER,newId,promptStacks,referenceBytes,REFERENCE_BUDGET,type LibraryState,type PromptItem,type TemplateItem,type ReferenceImage} from './library';
+import penSvg from '../svg/pen.svg';
+import trashSvg from '../svg/trash.svg';
+import wandSvg from '../svg/wand-magic-sparkles.svg';
 
 const esc=(s:unknown)=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const trashIcon='<span class="glyph-icon" aria-hidden="true">&#x1F5D1;&#xFE0E;</span>';
-const sparklesIcon='<span class="glyph-icon" aria-hidden="true">&#x2728;&#xFE0E;</span>';
+const cardIcon=(svg:string)=>`<span class="card-action-icon" aria-hidden="true">${svg}</span>`;
 const root=document.getElementById('app')!;
 const overlay=document.getElementById('overlay')!;
 type CollectionKind='prompts'|'templates';
@@ -102,7 +105,7 @@ function showCollection(kind:CollectionKind,actions:CollectionActions,closeColle
     return `<article class="card" draggable="true" data-card="${esc(item.id)}">
       <div class="card-top"><span class="drag-handle" title="Drag to reorder" aria-hidden="true">⋮⋮</span>${template?`<strong>${esc(template.name)}</strong>`:`<span class="card-date">${new Date(item.updatedAt).toLocaleString()}</span>`}</div>
       ${edit?`${template?`<label class="sr-only" for="name-${esc(item.id)}">Template name</label><input id="name-${esc(item.id)}" data-edit-name="${esc(item.id)}" value="${esc(template.name)}">`:''}<label class="sr-only" for="text-${esc(item.id)}">${template?'Template':'Prompt'} text</label><textarea id="text-${esc(item.id)}" data-edit-text="${esc(item.id)}" rows="5">${esc(item.text)}</textarea>${template?`<label class="check"><input type="checkbox" data-edit-transparent="${esc(item.id)}" ${template.transparentBackground?'checked':''}> Transparent PNG (OpenAI GPT Image)</label>`:''}`:`<p>${esc(item.text)}</p>${template?.transparentBackground?'<small>Transparent PNG · OpenAI GPT Image</small>':''}`}
-      <div class="card-footer">${template?`<div class="card-footer-left"><button type="button" class="add-reference" data-add-ref-button="${esc(item.id)}">＋ Reference</button><input type="file" accept="image/png,image/jpeg,image/webp" data-add-ref="${esc(item.id)}" hidden>${images.map(r=>`<span class="card-reference" title="${esc(r.name)}"><img class="card-reference-thumb" src="${esc(r.dataUrl)}" alt="${esc(r.name)}"><span class="card-reference-preview"><img src="${esc(r.dataUrl)}" alt=""></span><button type="button" aria-label="Remove ${esc(r.name)}" data-remove-ref="${esc(item.id)}" data-ref="${esc(r.id)}">×</button></span>`).join('')}</div>`:'<div></div>'}<div class="card-actions"><button type="button" title="${edit?'Save':'Edit'}" aria-label="${edit?'Save':'Edit'}" data-edit="${esc(item.id)}">${edit?'✓':'✎'}</button><button type="button" title="Delete" aria-label="Delete" data-delete="${esc(item.id)}">${trashIcon}</button><button type="button" class="use" title="Use" aria-label="Use" data-use="${esc(item.id)}">${sparklesIcon}</button></div></div>
+      <div class="card-footer">${template?`<div class="card-footer-left"><button type="button" class="add-reference" data-add-ref-button="${esc(item.id)}">＋ Reference</button><input type="file" accept="image/png,image/jpeg,image/webp" data-add-ref="${esc(item.id)}" hidden>${images.map(r=>`<span class="card-reference" title="${esc(r.name)}"><img class="card-reference-thumb" src="${esc(r.dataUrl)}" alt="${esc(r.name)}"><span class="card-reference-preview"><img src="${esc(r.dataUrl)}" alt=""></span><button type="button" aria-label="Remove ${esc(r.name)}" data-remove-ref="${esc(item.id)}" data-ref="${esc(r.id)}">×</button></span>`).join('')}</div>`:'<div></div>'}<div class="card-actions"><button type="button" title="${edit?'Save':'Edit'}" aria-label="${edit?'Save':'Edit'}" data-edit="${esc(item.id)}">${edit?'✓':cardIcon(penSvg)}</button><button type="button" title="Delete" aria-label="Delete" data-delete="${esc(item.id)}">${cardIcon(trashSvg)}</button><button type="button" class="use" title="Use" aria-label="Use" data-use="${esc(item.id)}">${cardIcon(wandSvg)}</button></div></div>
     </article>`;
   };
   const render=()=>{

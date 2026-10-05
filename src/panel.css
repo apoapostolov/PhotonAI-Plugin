@@ -124,7 +124,9 @@ small { color: var(--ph-muted); }
 .card-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; margin-top: 6px; }
 .card-footer-left { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
 .card-actions { display: flex; justify-content: flex-end; gap: 2px; flex: none; }
-.card-actions button { width: 25px; height: 24px; padding: 0; border: 1px solid transparent; background: none; color: var(--ph-muted); }
+.card-actions button { display: grid; place-items: center; width: 25px; height: 24px; padding: 0; border: 1px solid transparent; background: none; color: var(--ph-muted); }
+.card-action-icon { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; vertical-align: middle; }
+.card-action-icon svg { display: block; width: 16px; height: 16px; fill: currentColor; }
 .card-actions button:hover { border-color: var(--ph-stroke); background: var(--ph-control-hover); color: var(--ph-text); }
 .card-actions button.delete-armed, .card-actions button.delete-armed:hover { color: var(--ph-danger); border-color: var(--ph-danger); background: var(--ph-control-hover); }
 .card-actions button.use { color: var(--ph-accent); }
