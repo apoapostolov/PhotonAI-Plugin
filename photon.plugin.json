@@ -9,9 +9,9 @@
     {
       "id": "ai",
       "label": "AI",
-      "ui": "native",
+      "ui": "custom",
       "minimumSize": {
-        "width": 260,
+        "width": 360,
         "height": 320
       }
     }

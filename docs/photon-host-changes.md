@@ -2,7 +2,7 @@
 
 This note is for the Photon team. It describes host changes that Photon AI Studio needs for Codex and Grok device sign-in.
 
-Photon Studio 0.1.41 (`@tenzen/photon`) cannot finish that flow. A local test install of the editor was modified so the plugin could be tried. The plugin package does not contain those edits, and this repository does not patch Photon. Please implement the behavior in Photon and in `@photon/plugin-sdk`.
+Photon Studio 0.1.41 (`@tenzen/photon`) cannot finish that flow. A local test install of the editor was modified so the plugin could be tried. The plugin package does not contain those edits. Please implement the behavior in Photon and in `@photon/plugin-sdk`.
 
 The local test build changed three files inside `resources/app.asar`:
 
@@ -124,7 +124,7 @@ Please keep timers alive for a Photon plugin runtime that is hidden because its 
 
 The plugin sends it as `authorization: "Bearer <token>"` on the network request, separate from `headers`. In `network()`, after the credential block and before the body is built:
 
-- Accept only a string that starts with `Bearer `.
+- Accept only a string that starts with `Bearer`.
 - Reject newlines and values longer than 16 KB.
 - Set `headers.Authorization` from that field.
 
@@ -146,8 +146,25 @@ The plugin stores `codex-session` for `https://chatgpt.com` and `grok-session` f
 
 The vault can attach `Authorization`, `x-api-key`, `x-goog-api-key`, and `x-key`. Ideogram's published header is `Api-Key`. The plugin sends the vault key as `x-api-key` because that is a header the host already allows.
 
+On 2026-10-05, the installed 0.1.42 `app.asar` contained `credentials.read` and `credentials.store`; its original `app.asar.bak` did not. After the development folder was reloaded, the registry no longer recorded a `credentials.read` error. The public SDK package still lacks typed methods for these calls, so the plugin uses its bridge. A `credentials.read` error on a running editor means its loaded controller lacks this host patch; fully quit and reopen Photon after replacing an archive.
+
 ## What to ship
 
 Ship these behaviors in Photon and the SDK: `form` bodies, an in-place dialog update, dialog actions for copy and open-external that do not close the dialog, unthrottled timers for a hidden native plugin runtime, an `authorization` field on network requests, and encrypted session store/read.
 
-Photon Studio 0.1.42 still needs all of them. Leave the sign-in control ids and the CSS class names as plugin details. A local test install may carry those edits until the product does. This plugin does not patch Photon.
+Photon Studio 0.1.42 still needs all of them. Leave the sign-in control ids and the CSS class names as plugin details. A local test install may carry those edits until the product does.
+
+## Library and Templates host work
+
+Library and Templates need an editor-wide modal. The custom panel cannot draw outside its `WebContentsView`. Photon already implements full-window view promotion for UXP through `panel.dialog`; Photon plugins cannot call that route. The plugin now requests `sdk.ui.customDialog({open: boolean})`, and the host must implement it in `resources/app.asar` → `dist-electron/electron/plugins/controller.js` (`PhotonRuntime.request()`). No hashed renderer asset needs changing.
+
+The host method must accept only a declared custom Photon panel and a Boolean `open`. On open, set `instance.dialogOpen`, move that plugin-owned view to the top of its editor owner's `contentView`, size it to the owner's full content area, and focus it. On close, clear `dialogOpen`, restore `instance.bounds`, and focus the editor. The existing bounds handler already maintains full-window bounds while `dialogOpen` is true. The plugin draws the backdrop and classic folder-sidebar/card-content dialog within this full-window view; the dialog is no longer confined to the dock. The view retains its current plugin identity, broker, theme, and `window.open` restriction.
+
+`scripts/patch-photon-host.mjs` applies this controller change to a copy of an existing archive. Run it with input and distinct output paths. It refuses unknown controller versions and archives already carrying the marker. Its output must replace `app.asar` only after **all** Photon Studio processes are closed; preserve the existing archive as a backup and reopen Photon. The installed 0.1.42 archive had prior device sign-in edits, so the patch used that archive rather than the original `app.asar.bak`. The patched local output is installed as `resources/app.asar`; its immediate predecessor is `resources/app.asar.before-modal`. The package in `dist/plugin` is built against this capability; on an unpatched host it reports `Unsupported Photon SDK capability: ui.customDialog` instead of showing a cramped in-panel dialog. A real editor visual check is still required after this install.
+
+Two limits remain for a production-quality collection:
+
+1. Add a public `ui.customDialog(open)` method to `@photon/plugin-sdk` when shipping the host change. The current plugin uses the bridge directly because the vendored SDK has no such method.
+2. `settings.set` permits 1 MB. To keep unlimited prompt history and full-resolution reference files, add plugin-scoped binary storage in the same controller and SDK. A safe shape is `storage.write(id, bytes)`, `storage.read(id)`, and `storage.delete(id)` with path-free, plugin-scoped IDs, per-plugin quota, atomic writes, and cleanup on uninstall. The store must not be available to other plugins. Then migrate `LibraryState` metadata to settings and image bytes to storage, and stop pruning history. The current plugin stores resized references and bounded history in settings; it does not call a storage API that stock Photon lacks.
+
+After a host change, rebuild `app.asar` from Photon source rather than editing the hashed renderer bundle by string replacement. Compare the new archive with `app.asar.bak`, quit all Photon Studio processes before replacement, and relaunch to load the new archive.

@@ -1,6 +1,6 @@
 # Photon AI Studio
 
-A native Photon Studio plugin for **BYOK image generation, AI object removal, and generative fill**.
+A Photon Studio plugin for **BYOK image generation, AI object removal, and generative fill**.
 Bring your own OpenAI, Gemini, Ideogram, Black Forest Labs, fal.ai, Replicate, Together AI, or X API key,
 or sign in to Codex and Grok. Custom OpenAI-compatible services are supported too. Images go directly from your device to
 that provider. Photon does not supply credits or proxy requests through a Tenzen account.
@@ -29,6 +29,10 @@ Click Generate, Remove, or Fill explicitly to make a billable provider request.
 - **Fill:** make a selection, invoke **Generative Fill…**, and describe the replacement.
 - **Apply:** creates a named layer and one undo step. Selection edits have an editable mask.
   Source layers remain unchanged. If the source document changed, regenerate before applying.
+- **Library:** save prompts, revisit every recent successful use in History, and expand stacks of similar revisions.
+- **Templates:** apply reusable context with editable text fields, dropdowns, and attached image references. The visible prompt remains separate from template context.
+
+See [Library and Templates](docs/library-and-templates.md) for field syntax, folder and card controls, reference support, and storage limits.
 
 ## Plugin developer guide
 
