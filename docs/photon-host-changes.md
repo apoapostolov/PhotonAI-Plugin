@@ -156,6 +156,8 @@ Photon Studio 0.1.42 still needs all of them. Leave the sign-in control ids and 
 
 ## Library and Templates host work
 
+The 2026-10-06 library interaction changes (inline prompt error, card reference controls, quota placement, and persistent drag grouping) are plugin-side only. They add no new `app.asar` edit. The editor-wide dialog still depends on the `sdk.ui.customDialog` controller patch below, alongside the earlier sign-in patches in this note. The complete upstream PR includes `scripts/patch-photon-host.mjs` and all of these host requirements from the development work in PR #1.
+
 Library and Templates need an editor-wide modal. The custom panel cannot draw outside its `WebContentsView`. Photon already implements full-window view promotion for UXP through `panel.dialog`; Photon plugins cannot call that route. The plugin now requests `sdk.ui.customDialog({open: boolean})`, and the host must implement it in `resources/app.asar` → `dist-electron/electron/plugins/controller.js` (`PhotonRuntime.request()`). No hashed renderer asset needs changing.
 
 The host method must accept only a declared custom Photon panel and a Boolean `open`. On open, set `instance.dialogOpen`, move that plugin-owned view to the top of its editor owner's `contentView`, size it to the owner's full content area, and focus it. On close, clear `dialogOpen`, restore `instance.bounds`, and focus the editor. The existing bounds handler already maintains full-window bounds while `dialogOpen` is true. The plugin draws the backdrop and classic folder-sidebar/card-content dialog within this full-window view; the dialog is no longer confined to the dock. The view retains its current plugin identity, broker, theme, and `window.open` restriction.

@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Library interaction follow-up (2026-10-06)
+
+The empty Save prompt message now appears immediately below the prompt box
+and clears when the prompt changes. Signed-in Codex and Grok quota text sits
+at the right of the Model label when there is no error, saving one panel row.
+Template cards now place ＋ Reference and icon-sized image thumbnails at the
+lower left, opposite the action glyphs. Hovering a thumbnail reveals a larger
+preview.
+
+Prompt, history, and template cards can be dragged to reorder, grouped by
+dropping onto a stack, separated with the drop area shown during a stacked
+drag, and reordered inside an expanded stack. Explicit stack choices persist
+in library settings alongside the existing fuzzy grouping for untouched
+cards. No Photon host archive change is needed for these interactions; the
+existing `sdk.ui.customDialog` patch remains required.
+
 ### Library and Templates
 
 Library and Template card actions now use a font trash glyph for Delete and
@@ -10,6 +26,16 @@ prompt-save bookmark and applied-template trash also use font glyphs. The
 monochrome characters use Windows Segoe UI Symbol and inherit Photon's skin
 text colors. The installed Photon archive has no bundled icon font; its
 existing Inter font does not contain these symbols.
+
+Card and folder deletion now use the trash glyph itself for confirmation:
+the first click arms it with Photon's danger color for two seconds, and a
+second click on that same glyph deletes the item. Clicking elsewhere,
+pressing Escape, starting a drag, or the timeout disarms it. This removes
+the delete-confirmation buttons above the collection content.
+TypeScript typecheck and package build passed. Photon Studio reloaded the
+development folder at 20:42 local time; installed JavaScript and CSS hashes
+match `dist/plugin`, with zero registry issues and diagnostics. The timing
+and red state still need a direct visual check inside the editor.
 
 AI Studio now builds as a custom Photon panel. Library and Templates buttons sit beneath the visible prompt on one row. Their editor-wide modal uses a classic two-column layout: folder sidebar on the left, cards on the right. The dialog has a compact title bar without a subtitle or decorative header. Cards support editing, deletion, drag ordering, and stacks of similar text. History records submitted prompts, including expanded template context. Templates supply hidden context alongside the visible prompt; `{name}` and `{name:one|two|three}` produce controls beneath it. Attached and manual image references appear as cropped square thumbnails and are sent to supported image adapters.
 

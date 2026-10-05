@@ -21,7 +21,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
   const seededTemplates=seedPremadeTemplates(settings.library);
   settings.modelCache=sanitizeModelCache(settings.modelCache);
   if(!providers.some(p=>p.id===settings.provider))settings.provider='openai';
-  let mode:Mode='generate',prompt='',size='1024x1024',quality='auto',busy=false,error='',credential=false,persistent=true,result:Result|undefined,insert=false,hasSelection=false,activeTemplateId='',templateValues:Record<string,string>={},manualReferences:ReferenceImage[]=[];
+  let mode:Mode='generate',prompt='',promptSaveError='',size='1024x1024',quality='auto',busy=false,error='',credential=false,persistent=true,result:Result|undefined,insert=false,hasSelection=false,activeTemplateId='',templateValues:Record<string,string>={},manualReferences:ReferenceImage[]=[];
   const sessions:Partial<Record<'codex'|'grok',OAuthSession>>={};const quotas:Partial<Record<'codex'|'grok',string>>={};
   const subscriptions:{dispose():void}[]=[];let disposed=false;const listAbort=new AbortController();let refreshTimer:ReturnType<typeof setTimeout>|undefined;let quotaTimer:ReturnType<typeof setTimeout>|undefined;let quotaBusy=false;
   const provider=()=>providers.find(p=>p.id===settings.provider)!;
@@ -58,17 +58,17 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
     ];
     const oauthId=settings.provider==='codex'||settings.provider==='grok'?settings.provider:undefined;const oauthSession=oauthId?sessions[oauthId]:undefined;const signedIn=!!oauthSession||credential;
     if(settings.provider==='midjourney')controls.push({type:'text',text:'Midjourney does not publish an official image API. Create the image there, then open it in Photon.'});
-    else if(oauthId){if(oauthSession)controls.push({type:'button',id:'forgetLogin',label:'Forget Login',disabled:busy});else controls.push({type:'button',id:'configure',label:oauthId==='codex'?'Sign in with Codex':'Sign in with Grok',disabled:busy});if(oauthId==='grok')controls.push({type:'button',id:'apikey',label:credential?'Change API key':'Use an API key',disabled:busy});if(oauthSession){if(quotas[oauthId])controls.push({type:'text',text:quotas[oauthId]});}else controls.push({type:'text',text:credential?(persistent?'API key saved securely on this device.':'API key available for this session.'):'Sign in with the device code. The access token is not shown.'});if(error)controls.push({type:'text',tone:'danger',text:error});}
+    else if(oauthId){if(oauthSession)controls.push({type:'button',id:'forgetLogin',label:'Forget Login',disabled:busy});else controls.push({type:'button',id:'configure',label:oauthId==='codex'?'Sign in with Codex':'Sign in with Grok',disabled:busy});if(oauthId==='grok')controls.push({type:'button',id:'apikey',label:credential?'Change API key':'Use an API key',disabled:busy});if(!oauthSession)controls.push({type:'text',text:credential?(persistent?'API key saved securely on this device.':'API key available for this session.'):'Sign in with the device code. The access token is not shown.'});if(error)controls.push({type:'text',tone:'danger',text:error});}
     else controls.push({type:'button',id:'configure',label:credential?'Change API key':'Connect provider',disabled:busy},{type:'text',text:credential?(persistent?'API key saved securely on this device.':'API key available for this session.'):'Connect this provider to start.'});
     if(settings.provider!=='midjourney'&&credential)controls.push({type:'button',id:'forget',label:'Forget API key',disabled:busy});
     if(settings.provider==='custom')controls.push({type:'input',id:'customBase',label:'API base URL',value:settings.customBase,disabled:busy,description:'An OpenAI-compatible API base, including /v1 when required.'},{type:'input',id:'customModel',label:'Model ID',value:settings.customModel,disabled:busy},{type:'input',id:'customSizes',label:'Supported sizes',value:settings.customSizes,disabled:busy,description:'Comma-separated widthxheight values; leave blank to use provider defaults.'},{type:'input',id:'customQualities',label:'Supported qualities',value:settings.customQualities,disabled:busy,description:'Comma-separated API values; leave blank if unsupported.'},{type:'number',id:'customMaxEdge',label:'Maximum reference edge',value:settings.customMaxEdge,min:64,max:8192,disabled:busy},{type:'checkbox',id:'customEdit',label:'This model supports masked image edits',value:settings.customEdit,disabled:busy});
-    else controls.push({type:'select',id:'model',label:'Model',value:m?.id??'',disabled:busy,options:models().map(item=>({value:item.id,label:item.label}))});
+    else controls.push({type:'select',id:'model',label:'Model',description:oauthId&&oauthSession&&!error?quotas[oauthId]:undefined,value:m?.id??'',disabled:busy,options:models().map(item=>({value:item.id,label:item.label}))});
     const accountModels=settings.provider==='custom'?settings.modelCache.custom?.models??[]:[];
     if(accountModels.length)controls.push({type:'select',id:'accountModel',label:'Account models',value:accountModels.some(item=>item.id===settings.customModel)?settings.customModel:'',disabled:busy,options:accountModels.map(item=>({value:item.id,label:item.label}))});
     if(mode!=='generate')controls.push({type:'text',text:hasSelection?'The current selection defines the editable region.':'Make a selection in the document to continue.'},...(m?.edit==='prompt'?[{type:'text' as const,text:'Prompt-based editing: this model interprets the mask as a reference. Photon preserves pixels outside your selection when you apply.'}]:[]));
     if(mode!=='generate'&&!m?.edit)controls.push({type:'text',tone:'danger',text:'This model does not support image editing. Choose a model with edit support.'});
     if(mode!=='remove'){
-      controls.push({type:'textarea',id:'prompt',label:mode==='fill'?'Describe the fill':'Describe your image',value:prompt,disabled:busy});
+      controls.push({type:'textarea',id:'prompt',label:mode==='fill'?'Describe the fill':'Describe your image',value:prompt,description:promptSaveError,disabled:busy});
       controls.push({type:'group',id:'promptActions',children:[{type:'button',id:'library',label:'Library',disabled:busy},{type:'button',id:'templates',label:'Templates',disabled:busy}]});
       const template=settings.library.templates.find(t=>t.id===activeTemplateId);
       if(template){const fields:Control[]=templateFields(template.text).map(f=>f.options.length?{type:'select',id:'templateField:'+f.name,label:f.name,value:templateValues[f.name]??f.options[0],options:f.options.map(value=>({value,label:value}))}:{type:'input',id:'templateField:'+f.name,label:f.name,value:templateValues[f.name]??''});if(template.transparentBackground)fields.push({type:'text',text:'Transparent PNG · OpenAI GPT Image model required'});controls.push({type:'group',id:'templateSurface',label:template.name,children:fields});}
@@ -125,15 +125,13 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
       else if(event.id==='configure'||event.id==='apikey'){busy=true;await publish();if(settings.provider==='custom')await api.network.allowEndpoint(endpoint());const info=await api.credentials.configure(keyId(),provider().label+' API key',endpoint());credential=info.configured;persistent=info.persistent;await refreshModels(settings.provider,true);armRefresh();busy=false;}
       else if(event.id==='forgetLogin'&&(settings.provider==='codex'||settings.provider==='grok')){const oauthId=settings.provider as OAuthProvider;delete sessions[oauthId];delete quotas[oauthId];await clearOAuthSession(oauthId);const modelCache={...settings.modelCache};delete modelCache[oauthId];settings.modelCache=modelCache;await save();}
       else if(event.id==='forget'){await api.credentials.delete(keyId());credential=false;}
-      else if(event.id==='run'){await run();return;}
+      else if(event.id==='run'){promptSaveError='';await run();return;}
       else if(event.id==='savePrompt'){
         const text=prompt.trim();
-        if(!text)throw new PluginError('INVALID_PROMPT','Write a prompt before saving it.');
-        const now=Date.now();
-        settings.library.prompts.push({id:newId(),folderId:ROOT_FOLDER,text,order:now,createdAt:now,updatedAt:now});
-        await save();
+        if(!text)promptSaveError='Write a prompt before saving it.';
+        else {promptSaveError='';const now=Date.now();settings.library.prompts.push({id:newId(),folderId:ROOT_FOLDER,text,order:now,createdAt:now,updatedAt:now});await save();}
       }
-      else if((event.id==='library'||event.id==='templates')&&panel){await panel.openCollection(event.id==='library'?'prompts':'templates',{library:settings.library,save:save,usePrompt:async text=>{prompt=text;await publish();},useTemplate:async item=>{activeTemplateId=item.id;templateValues={};await publish();}});return;}
+      else if((event.id==='library'||event.id==='templates')&&panel){await panel.openCollection(event.id==='library'?'prompts':'templates',{library:settings.library,save:save,usePrompt:async text=>{prompt=text;promptSaveError='';await publish();},useTemplate:async item=>{activeTemplateId=item.id;templateValues={};await publish();}});return;}
       else if(event.id==='clearTemplate'){activeTemplateId='';templateValues={};}
       else if(event.id==='panelError'){error=String(event.value??'');}
       else if(event.id.startsWith('templateField:')){templateValues[event.id.slice(14)]=String(event.value??'');return;}
@@ -146,7 +144,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
       else if(event.id==='mode'){mode=event.value as Mode;await refreshContext();}
       else if(event.id==='model'){settings.models[settings.provider]=String(event.value);await save();}
       else if(event.id==='accountModel'){settings.customModel=String(event.value??'');settings.models.custom=settings.customModel;await save();}
-      else if(event.id==='prompt'){prompt=String(event.value??'');return;}
+      else if(event.id==='prompt'){prompt=String(event.value??'');if(promptSaveError){promptSaveError='';await publish();}return;}
       else if(event.id==='size')size=String(event.value);
       else if(event.id==='quality')quality=String(event.value);
       else if(event.id==='insert')insert=Boolean(event.value);

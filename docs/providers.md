@@ -29,6 +29,8 @@ Access tokens, refresh tokens, and API keys are not written into it. If the acco
 cannot be loaded, the provider error is shown and the previous cache or the bundled catalog stays in the dropdown.
 A ChatGPT sign-in reads the account model catalog. The dropdown then lists the visible models that accept or produce images, using the account's own names. A sign-in is not sent to the OpenAI model list, because that list requires the `api.model.read` scope. The bundled models remain only until the account list is saved.
 
+For signed-in Codex and Grok sessions, available quota appears right-aligned beside the Model label. An error remains on its own line and does not replace the Model label.
+
 OpenAI, Codex, and custom endpoints use their model list and keep GPT Image and DALL·E ids.
 Codex reads the ChatGPT model catalog. An API key for Codex can also read the OpenAI model list. Grok and X API use
 `GET https://api.x.ai/v1/image-generation-models`. Gemini keeps image-generation model ids

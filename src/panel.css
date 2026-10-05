@@ -30,9 +30,13 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   background: transparent; color: var(--ph-muted);
 }
 .prompt-save:hover:not(:disabled) { background: var(--ph-control-hover); color: var(--ph-text); }
+.prompt-save-error { margin: 0; padding-left: 6px; border-left: 2px solid var(--ph-danger); color: var(--ph-danger); line-height: 1.4; }
 .field select option { background: var(--ph-black-4); }
 .control-text { margin: 0; color: var(--ph-muted); line-height: 1.4; }
 .control-text.danger { color: var(--ph-text); border-left: 2px solid var(--ph-danger); padding-left: 6px; }
+.model-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+.model-label-row > span:first-child { flex: none; }
+.model-quota { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; font-size: 11px; color: var(--ph-muted); }
 .tabs { display: flex; gap: 0; border: 1px solid var(--ph-stroke); border-radius: 3px; overflow: hidden; }
 .tabs button { flex: 1; min-width: 0; padding: 5px 7px; border: 0; border-right: 1px solid var(--ph-stroke); background: var(--ph-black-6); color: inherit; }
 .tabs button:last-child { border-right: 0; }
@@ -81,10 +85,6 @@ small { color: var(--ph-muted); }
 }
 .dialog-title { font-size: 12px; font-weight: 600; }
 .dialog-notice { margin: 0; padding: 6px 10px; border-bottom: 1px solid var(--ph-stroke); border-left: 2px solid var(--ph-danger); color: var(--ph-text); }
-.inline-confirm { display: flex; align-items: center; gap: 7px; padding: 6px 10px; border-bottom: 1px solid var(--ph-stroke); }
-.inline-confirm span { flex: 1; }
-.inline-confirm button { padding: 3px 7px; border: 1px solid var(--ph-stroke); background: var(--ph-black-6); color: inherit; }
-.inline-confirm [data-confirm-delete] { color: var(--ph-text); border-left: 2px solid var(--ph-danger); }
 .close { width: 22px; height: 22px; padding: 0; border: 0; background: none; color: var(--ph-muted); font-size: 18px; line-height: 1; }
 .close:hover { color: var(--ph-text); background: var(--ph-control-hover); }
 .collection-body { display: grid; grid-template-columns: 164px minmax(0,1fr); min-height: 0; flex: 1; }
@@ -101,6 +101,7 @@ small { color: var(--ph-muted); }
 .folder.active { background: var(--ph-control-active); }
 .folder:hover, .folder-row button:hover, .new-folder:hover { background: var(--ph-control-hover); }
 .folder-row button:not(.folder) { width: 20px; height: 23px; flex: none; padding: 0; text-align: center; color: var(--ph-muted); }
+.folder-row button.delete-armed, .folder-row button.delete-armed:hover { color: var(--ph-danger); border: 1px solid var(--ph-danger); background: var(--ph-control-hover); }
 .new-folder { flex: none; margin-top: 6px; padding: 5px 7px; color: var(--ph-muted); }
 .collection-content { min-width: 0; overflow: auto; padding: 9px; }
 .collection-toolbar { display: flex; gap: 6px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
@@ -120,15 +121,30 @@ small { color: var(--ph-muted); }
 .card p { max-height: 150px; margin: 4px 0 8px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; }
 .card textarea { min-height: 90px; resize: vertical; }
 .card input { margin-bottom: 5px; }
-.card-actions { display: flex; justify-content: flex-end; gap: 2px; margin-top: 6px; }
+.card-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; margin-top: 6px; }
+.card-footer-left { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+.card-actions { display: flex; justify-content: flex-end; gap: 2px; flex: none; }
 .card-actions button { width: 25px; height: 24px; padding: 0; border: 1px solid transparent; background: none; color: var(--ph-muted); }
 .card-actions button:hover { border-color: var(--ph-stroke); background: var(--ph-control-hover); color: var(--ph-text); }
+.card-actions button.delete-armed, .card-actions button.delete-armed:hover { color: var(--ph-danger); border-color: var(--ph-danger); background: var(--ph-control-hover); }
 .card-actions button.use { color: var(--ph-accent); }
 .stack { padding: 4px; }
+.stack:hover { border-color: var(--ph-stroke-strong); }
 .stack .card { margin-top: 4px; }
 .stack-title { display: flex; justify-content: space-between; width: 100%; padding: 4px 5px; border: 0; background: var(--ph-control-active); color: inherit; text-align: left; }
 .stack:not(:has(.card:nth-child(3)))::after { content: ""; display: block; height: 3px; margin: 0 5px -4px; border: 1px solid var(--ph-stroke); border-top: 0; background: var(--ph-black-4); }
-.add-reference { display: inline-block; margin-top: 6px; padding: 3px 5px; border: 1px solid var(--ph-stroke); color: var(--ph-muted); cursor: pointer; }
+.unstack-drop { display: none; grid-column: 1 / -1; padding: 12px; border: 1px dashed var(--ph-stroke-strong); background: var(--ph-control); color: var(--ph-muted); text-align: center; }
+.dragging-stack .unstack-drop { display: block; }
+.dragging-stack .unstack-drop:hover { border-color: var(--ph-accent); color: var(--ph-text); background: var(--ph-control-hover); }
+.add-reference { min-height: 24px; padding: 2px 5px; border: 1px solid var(--ph-stroke); background: var(--ph-control); color: var(--ph-muted); white-space: nowrap; }
+.add-reference:hover { background: var(--ph-control-hover); color: var(--ph-text); }
+.card-reference { position: relative; display: inline-grid; place-items: center; width: 24px; height: 24px; flex: none; border: 1px solid var(--ph-stroke); background: var(--ph-control); }
+.card-reference-thumb { width: 100%; height: 100%; object-fit: cover; }
+.card-reference > button { position: absolute; top: 0; right: 0; width: 12px; height: 12px; padding: 0; border: 0; background: var(--ph-glass-plate-strong); color: var(--ph-text); font-size: 11px; line-height: 1; opacity: 0; }
+.card-reference:hover > button, .card-reference:focus-within > button { opacity: 1; }
+.card-reference-preview { position: absolute; z-index: 5; left: 0; bottom: calc(100% + 5px); display: none; width: 104px; height: 104px; padding: 3px; border: 1px solid var(--ph-stroke-strong); background: var(--ph-black-5); box-shadow: var(--ph-hairline); pointer-events: none; }
+.card-reference-preview img { width: 100%; height: 100%; object-fit: contain; }
+.card-reference:hover .card-reference-preview, .card-reference:focus-within .card-reference-preview { display: block; }
 .empty { color: var(--ph-muted); }
 @media (max-width: 520px) {
   .collection-body { grid-template-columns: 106px minmax(0,1fr); }

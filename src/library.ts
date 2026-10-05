@@ -1,6 +1,6 @@
 export interface Folder {id:string;name:string;order:number;}
 export interface ReferenceImage {id:string;name:string;dataUrl:string;}
-export interface PromptItem {id:string;folderId:string;text:string;order:number;createdAt:number;updatedAt:number;}
+export interface PromptItem {id:string;folderId:string;text:string;order:number;createdAt:number;updatedAt:number;stackId?:string|null;}
 export interface HistoryItem extends PromptItem {templateName?:string;}
 export interface TemplateItem extends PromptItem {name:string;references:ReferenceImage[];transparentBackground?:boolean;}
 export interface LibraryState {folders:Folder[];prompts:PromptItem[];history:HistoryItem[];templates:TemplateItem[];templateSeedVersion:number;}
@@ -12,9 +12,10 @@ export function emptyLibrary():LibraryState{return {folders:[],prompts:[],histor
 export function cleanLibrary(value:unknown):LibraryState{
   if(!value||typeof value!=='object')return emptyLibrary();const source=value as Partial<LibraryState>;
   const folders=Array.isArray(source.folders)?source.folders.filter(f=>f&&typeof f.id==='string'&&typeof f.name==='string').slice(0,100):[];
-  const prompts=Array.isArray(source.prompts)?source.prompts.filter(p=>p&&typeof p.id==='string'&&typeof p.text==='string').slice(0,2000):[];
-  const history=Array.isArray(source.history)?source.history.filter(p=>p&&typeof p.id==='string'&&typeof p.text==='string').slice(-2000):[];
-  const templates=Array.isArray(source.templates)?source.templates.filter(t=>t&&typeof t.id==='string'&&typeof t.text==='string'&&typeof t.name==='string').slice(0,510).map(t=>({...t,transparentBackground:t.transparentBackground===true,references:Array.isArray(t.references)?t.references.filter(r=>r&&typeof r.dataUrl==='string'&&/^data:image\/(png|jpeg|webp);base64,/.test(r.dataUrl)).slice(0,8):[]})):[];
+  const stackId=(item:PromptItem)=>item.stackId===null||typeof item.stackId==='string'&&item.stackId.length<=100?item.stackId:undefined;
+  const prompts=Array.isArray(source.prompts)?source.prompts.filter(p=>p&&typeof p.id==='string'&&typeof p.text==='string').slice(0,2000).map(p=>({...p,stackId:stackId(p)})):[];
+  const history=Array.isArray(source.history)?source.history.filter(p=>p&&typeof p.id==='string'&&typeof p.text==='string').slice(-2000).map(p=>({...p,stackId:stackId(p)})):[];
+  const templates=Array.isArray(source.templates)?source.templates.filter(t=>t&&typeof t.id==='string'&&typeof t.text==='string'&&typeof t.name==='string').slice(0,510).map(t=>({...t,stackId:stackId(t),transparentBackground:t.transparentBackground===true,references:Array.isArray(t.references)?t.references.filter(r=>r&&typeof r.dataUrl==='string'&&/^data:image\/(png|jpeg|webp);base64,/.test(r.dataUrl)).slice(0,8):[]})):[];
   const templateSeedVersion=typeof source.templateSeedVersion==='number'&&Number.isInteger(source.templateSeedVersion)&&source.templateSeedVersion>=0?source.templateSeedVersion:0;
   return {folders,prompts,history,templates,templateSeedVersion};
 }
@@ -33,8 +34,11 @@ export function similarPrompt(a:string,b:string):boolean{
   let common=0;for(const word of bb){const n=count.get(word)??0;if(n){common++;count.set(word,n-1);}}
   return Math.max(aa.length,bb.length)-common<=Math.max(1,Math.floor(Math.max(aa.length,bb.length)*.28));
 }
-export function promptStacks<T extends {id:string;text:string;updatedAt:number}>(items:T[]):T[][]{
-  const stacks:T[][]=[];for(const item of items){const stack=stacks.find(group=>similarPrompt(group[0].text,item.text));if(stack)stack.push(item);else stacks.push([item]);}return stacks;
+export function promptStacks<T extends {id:string;text:string;updatedAt:number;stackId?:string|null}>(items:T[]):T[][]{
+  const stacks:T[][]=[];for(const item of items){
+    const stack=item.stackId===null?undefined:item.stackId?stacks.find(group=>group[0].stackId===item.stackId):stacks.find(group=>group[0].stackId===undefined&&similarPrompt(group[0].text,item.text));
+    if(stack)stack.push(item);else stacks.push([item]);
+  }return stacks;
 }
 export function recordPrompt(library:LibraryState,text:string,templateName?:string):void{
   const now=Date.now();library.history.push({id:newId(),folderId:ROOT_FOLDER,text,order:now,createdAt:now,updatedAt:now,templateName});
