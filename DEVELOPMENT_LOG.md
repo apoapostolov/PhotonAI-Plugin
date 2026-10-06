@@ -18,6 +18,10 @@ the private plugin data backup is
 `%APPDATA%/Photon Studio/plugins/data.before-config-2026-10-06`. The editable
 Library migration will run when the new plugin build first loads.
 
+The PR and host note now ask the Photon team explicitly to add named,
+plugin-private configuration files as a supported host and SDK feature.
+The local archive patch is only a development bridge for that request.
+
 ### Reference thumbnail close alignment (2026-10-06)
 
 The remove-reference control on main-panel and template-card thumbnails now
