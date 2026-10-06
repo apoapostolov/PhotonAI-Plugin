@@ -14,6 +14,7 @@ import {cleanLibrary,fillTemplate,migrateTemplateSyntax,newId,recordPrompt,refer
 import {seedPremadeTemplates} from './premade-templates';
 import {readPluginConfig,writePluginConfig} from './plugin-config';
 import type {CustomPanel} from './custom-ui';
+import {canConvertTemplate,convertTemplate} from './template-conversion';
 interface Settings {provider:ProviderId;models:Partial<Record<ProviderId,string>>;customBase:string;customModel:string;customEdit:boolean;customSizes:string;customQualities:string;customMaxEdge:number;modelCache:Partial<Record<ProviderId,ModelCacheEntry>>;library:LibraryState;}
 interface Result {bytes:Uint8Array;image:ImagePixels;capture?:Capture;name:string;mode:Mode;target?:{documentId:string;revision:number};}
 export async function activate(api:PhotonApi,panel?:CustomPanel){
@@ -146,7 +147,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
         if(!text)promptSaveError='Write a prompt before saving it.';
         else {promptSaveError='';const now=Date.now();settings.library.prompts.push({id:newId(),folderId:ROOT_FOLDER,text,order:now,createdAt:now,updatedAt:now});await save();}
       }
-      else if((event.id==='library'||event.id==='templates')&&panel){await panel.openCollection(event.id==='library'?'prompts':'templates',{library:settings.library,save:save,usePrompt:async text=>{prompt=text;promptSaveError='';await publish();},useTemplate:async item=>{activeTemplateId=item.id;templateValues={};await publish();}});return;}
+      else if((event.id==='library'||event.id==='templates')&&panel){const selected=model(),conversionProvider=settings.provider;await panel.openCollection(event.id==='library'?'prompts':'templates',{library:settings.library,save:save,usePrompt:async text=>{prompt=text;promptSaveError='';await publish();},useTemplate:async item=>{activeTemplateId=item.id;templateValues={};await publish();},conversion:{model:selected?.label??'No model selected',available:!!selected&&canConvertTemplate(conversionProvider,selected.id)},convertTemplate:async(text,direction)=>{if(!selected?.id)throw new PluginError('MODEL_UNAVAILABLE','Choose a model before converting.');if(!credential)throw new PluginError('AUTHENTICATION','Connect this provider before converting.');return convertTemplate(api,{provider:conversionProvider,model:selected.id,baseUrl:settings.customBase,credential:conversionProvider,text,direction});}});return;}
       else if(event.id==='clearTemplate'){activeTemplateId='';templateValues={};}
       else if(event.id==='panelError'){error=String(event.value??'');}
       else if(event.id.startsWith('templateField:')){templateValues[event.id.slice(14)]=String(event.value??'');return;}
