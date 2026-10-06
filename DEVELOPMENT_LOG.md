@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Independent card columns (2026-10-06)
+
+Library and Templates cards now flow into vertical columns. Each card and
+expanded stack keeps its own height, so a tall item no longer leaves a blank
+space under shorter items beside it. Stacks stay together within a column;
+the separate-from-stack drop area spans the content width. This uses the
+plugin stylesheet and needs no Photon `app.asar` patch.
+
 ### Shared trash icon (2026-10-06)
 
 Folder deletion and the remove-applied-template control now use the same

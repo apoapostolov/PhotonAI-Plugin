@@ -129,7 +129,8 @@ small { color: var(--ph-muted); }
 .template-fields-help code { color: var(--ph-accent); overflow-wrap: anywhere; }
 .add { white-space: nowrap; }
 .add:hover { background: var(--ph-control-hover); }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); align-items: start; gap: 7px; }
+.cards { column-width: 220px; column-gap: 7px; }
+.cards > .card, .cards > .stack { break-inside: avoid; width: 100%; margin-bottom: 7px; }
 .card, .stack { min-width: 0; border: 1px solid var(--ph-stroke); background: var(--ph-black-6); }
 .card { padding: 8px; }
 .card.dragging { opacity: .45; }
@@ -155,7 +156,7 @@ small { color: var(--ph-muted); }
 .stack .card { margin-top: 4px; }
 .stack-title { display: flex; justify-content: space-between; width: 100%; padding: 4px 5px; border: 0; background: var(--ph-control-active); color: inherit; text-align: left; }
 .stack:not(:has(.card:nth-child(3)))::after { content: ""; display: block; height: 3px; margin: 0 5px -4px; border: 1px solid var(--ph-stroke); border-top: 0; background: var(--ph-black-4); }
-.unstack-drop { display: none; grid-column: 1 / -1; padding: 12px; border: 1px dashed var(--ph-stroke-strong); background: var(--ph-control); color: var(--ph-muted); text-align: center; }
+.unstack-drop { display: none; column-span: all; padding: 12px; border: 1px dashed var(--ph-stroke-strong); background: var(--ph-control); color: var(--ph-muted); text-align: center; }
 .dragging-stack .unstack-drop { display: block; }
 .dragging-stack .unstack-drop:hover { border-color: var(--ph-accent); color: var(--ph-text); background: var(--ph-control-hover); }
 .add-reference { min-height: 24px; padding: 2px 5px; border: 1px solid var(--ph-stroke); background: var(--ph-control); color: var(--ph-muted); white-space: nowrap; }
@@ -202,7 +203,7 @@ small { color: var(--ph-muted); }
   .collection-content { padding: 6px; }
   .collection-toolbar { flex-wrap: wrap; }
   .collection-toolbar .tabs { width: 100%; }
-  .cards { grid-template-columns: minmax(0,1fr); }
+  .cards { column-count: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
