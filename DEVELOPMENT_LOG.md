@@ -27,8 +27,13 @@ temporary dock view. The original panel view still supplies the interactive
 modal and returns to the dock on close. This follow-up archive was installed
 after Photon Studio fully closed, with the prior archive backed up at
 `resources/photon-ai-backups/2026-10-07-panel-preview/app.asar`. The installed
-controller passed syntax and marker checks. The dock preview and restore path
-still need a live check after reloading the development folder.
+controller passed syntax and marker checks. The dock preview was checked in
+Photon Studio after reloading the development folder. Library
+opened as a separate modal and the AI panel controls remained visible in the
+dock. The installed `plugin.js` hash matched `dist/plugin/plugin.js`; the
+plugin registry showed zero issues and diagnostics. The same host path serves
+Templates, which has not been separately observed in this check. The panel
+restore path after closing the modal was not separately confirmed.
 
 ### Visual template fields (2026-10-06)
 
