@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Shared trash icon (2026-10-06)
+
+Folder deletion and the remove-applied-template control now use the same
+bundled trash SVG as Library and Templates cards. The folder still requires
+two clicks within two seconds to delete. This is plugin-side only; it adds no
+Photon `app.asar` patch.
+
 ### Full-size prompt and template editor (2026-10-06)
 
 Editing a Library, History, or Templates card now opens a second modal layer
