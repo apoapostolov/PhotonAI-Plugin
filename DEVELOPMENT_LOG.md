@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Live Library and Templates search (2026-10-06)
+
+Both collection content toolbars now have a search field. Typing filters
+cards immediately by template name, prompt or template text, and the date
+shown on prompt cards. A stack remains in the results when any version
+matches; search opens that stack so the match is visible. Search only filters
+the current view and does not change saved cards or their order. Escape in a
+nonempty search field clears it. The centered field has a bottom hairline,
+dim Filter Prompts or Filter Templates placeholder, and initial focus when
+its dialog opens. This is a plugin UI change with no new Photon `app.asar`
+patch.
+
 ### Independent card columns (2026-10-06)
 
 Library and Templates cards now flow into vertical columns. Each card and
