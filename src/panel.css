@@ -129,7 +129,6 @@ small { color: var(--ph-muted); }
 .card-action-icon svg { display: block; width: 16px; height: 16px; fill: currentColor; }
 .card-actions button:hover { border-color: var(--ph-stroke); background: var(--ph-control-hover); color: var(--ph-text); }
 .card-actions button.delete-armed, .card-actions button.delete-armed:hover { color: var(--ph-danger); border-color: var(--ph-danger); background: var(--ph-control-hover); }
-.card-actions button.use { color: var(--ph-accent); }
 .stack { padding: 4px; }
 .stack:hover { border-color: var(--ph-stroke-strong); }
 .stack .card { margin-top: 4px; }

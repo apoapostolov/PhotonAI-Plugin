@@ -11,6 +11,7 @@ installed plugin needs no separate icon files or new Photon host patch. CSS
 uses `currentColor` and existing Photon skin tokens, including the red
 two-click delete state. Font Awesome attribution ships in
 `THIRD_PARTY_NOTICES.txt` with the plugin package.
+The Use icon shares the same muted grey and hover color as Edit and Delete.
 
 ### Library interaction follow-up (2026-10-06)
 
