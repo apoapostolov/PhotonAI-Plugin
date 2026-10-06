@@ -8,6 +8,10 @@ that provider. Photon does not supply credits or proxy requests through a Tenzen
 ## Build and install
 
 Requires Node.js 22 or later and a Photon build containing SDK v1.
+The current plugin also needs Photon's host changes for device sign-in,
+editor-wide dialogs, and separate per-plugin configuration files; see
+[Photon host changes](docs/photon-host-changes.md). Stock 0.1.42 lacks these
+capabilities.
 
 ```sh
 npm ci

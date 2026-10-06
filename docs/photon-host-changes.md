@@ -7,12 +7,12 @@ Photon Studio 0.1.41 (`@tenzen/photon`) cannot finish that flow. A local test in
 The local test build changed three files inside `resources/app.asar`:
 
 - `dist-electron/electron/plugins/controller.js`
-- `dist/assets/PhotonNativePanel-B38Fm8oZ.js`
+- `dist/assets/PhotonNativePanel-D_o_1O-3.js`
 - `dist/assets/PluginManager-Dru6GY4k.css`
 
-`app.asar.bak` in that install is the original 0.1.41 archive. Electron keeps the archive mapped until Photon Studio is fully quit and opened again.
+The installed `app.asar.bak` is the original 0.1.42 archive. Electron keeps the archive mapped until Photon Studio is fully quit and opened again.
 
-## What stock 0.1.41 does
+## What stock 0.1.41–0.1.42 does
 
 Device sign-in needs four host behaviors that 0.1.41 does not provide.
 
@@ -57,7 +57,7 @@ In `controller.js`, `request()` handles `ui.dialog` like this when `p.update` is
 - Return `null`. Do not replace `s.dialog` and do not resolve the original promise.
 - If no dialog is open, return `null` and do not open one.
 
-`PhotonNativePanel-B38Fm8oZ.js` keeps the mounted dialog in a `dialogWatch` map. A later `sdkDialog` for the same instance calls `setState` on that dialog. It does not call `DialogHost` again, so the original finish callback stays in place. The first resolving button, or unmount, still settles the original `ui.dialog` promise.
+The patched `PhotonNativePanel` bundle keeps the mounted dialog in a `dialogWatch` map. A later `sdkDialog` for the same instance calls `setState` on that dialog. It does not call `DialogHost` again, so the original finish callback stays in place. The first resolving button, or unmount, still settles the original `ui.dialog` promise.
 
 The plugin reaches this through the runtime bridge, because public `api.ui.dialog` has no update argument:
 
@@ -79,7 +79,7 @@ dialog.update(model)  // replace the open model; do not resolve result
 
 The local editor patch is a sign-in workaround. It special-cases control ids. Please replace it with general control actions. Every plugin dialog should not grow a hidden dependency on the ids `copy`, `open`, `code`, and `codeRow`.
 
-What the test build does in `PhotonNativePanel-B38Fm8oZ.js`:
+What the test build does in the `PhotonNativePanel` bundle:
 
 - A group whose id is `codeRow` uses the class `photon-native-inline` (a horizontal row).
 - A button whose id is `copy` is a borderless 16px clipboard glyph with accessible name "Copy to clipboard". It does not resolve the dialog.
@@ -167,11 +167,36 @@ Library and Templates need an editor-wide modal. The custom panel cannot draw ou
 
 The host method must accept only a declared custom Photon panel and a Boolean `open`. On open, set `instance.dialogOpen`, move that plugin-owned view to the top of its editor owner's `contentView`, size it to the owner's full content area, and focus it. On close, clear `dialogOpen`, restore `instance.bounds`, and focus the editor. The existing bounds handler already maintains full-window bounds while `dialogOpen` is true. The plugin draws the backdrop and classic folder-sidebar/card-content dialog within this full-window view; the dialog is no longer confined to the dock. The view retains its current plugin identity, broker, theme, and `window.open` restriction.
 
-`scripts/patch-photon-host.mjs` applies this controller change to a copy of an existing archive. Run it with input and distinct output paths. It refuses unknown controller versions and archives already carrying the marker. Its output must replace `app.asar` only after **all** Photon Studio processes are closed; preserve the existing archive as a backup and reopen Photon. The installed 0.1.42 archive had prior device sign-in edits, so the patch used that archive rather than the original `app.asar.bak`. The patched local output is installed as `resources/app.asar`; its immediate predecessor is `resources/app.asar.before-modal`. The package in `dist/plugin` is built against this capability; on an unpatched host it reports `Unsupported Photon SDK capability: ui.customDialog` instead of showing a cramped in-panel dialog. A real editor visual check is still required after this install.
+`scripts/patch-photon-host.mjs` applies this controller change and the plugin-config change below to a copy of an existing archive. Run it with input and distinct output paths. It accepts an archive already carrying the dialog marker, skips that part, and adds the missing config capability. It refuses unknown controller versions and archives already carrying the config marker. Its output must replace `app.asar` only after **all** Photon Studio processes are closed; preserve the existing archive as a backup and reopen Photon. The installed 0.1.42 archive had prior device sign-in edits, so the patch uses that archive rather than the original `app.asar.bak`. A package loaded on a host without these methods reports a missing SDK capability. A real editor visual check is still required after installation.
+
+## Per-plugin configuration files
+
+Main `settings.json` should hold only provider preferences and model cache. The thirty shipped presets come from `config/premade-templates.json` in the plugin package. Editable prompts, history, templates, their references, folders, deletion state, and ordering belong in a separate `config-library.json` under Photon's existing private directory for the plugin. The plugin copies an older Library from `settings.json` into this file before replacing settings without the Library field. A failed first write leaves the old settings copy intact for retry.
+
+Photon Studio 0.1.42 has `this.persistent(i, name)`, `this.json(i, name)`, `this.save(i, name, value)`, and `this.exclusive(i, callback)` in `resources/app.asar` → `dist-electron/electron/plugins/controller.js`. The JSON helper returns `{}` for a missing file and limits each file to 1 MB; save writes a temporary file and renames it. Add two SDK requests in `PhotonRuntime.request()` before the `settings.get` case:
+
+- `config.get({id})` reads `config-<id>.json` through `this.json`.
+- `config.set({id, value})` accepts a plain JSON object and writes it through `this.exclusive` and `this.save`.
+
+Use the plugin's existing `i.plugin.key` through `this.persistent`; never accept a path from the plugin. The local qualification patch allows only `library`, `templates`, `history`, and `references` as IDs, giving at most four 1 MB files per plugin. These files are private to that plugin and are removed by the existing per-plugin data cleanup. The first implementation uses only `library`. Add typed `config.get<T>(id)` and `config.set(id, value)` to `@photon/plugin-sdk` for the product release; the current plugin calls the bridge because the vendored SDK has no such methods. Do not use picker-granted `files.read/write` for automatic config storage.
 
 Two limits remain for a production-quality collection:
 
 1. Add a public `ui.customDialog(open)` method to `@photon/plugin-sdk` when shipping the host change. The current plugin uses the bridge directly because the vendored SDK has no such method.
-2. `settings.set` permits 1 MB. To keep unlimited prompt history and full-resolution reference files, add plugin-scoped binary storage in the same controller and SDK. A safe shape is `storage.write(id, bytes)`, `storage.read(id)`, and `storage.delete(id)` with path-free, plugin-scoped IDs, per-plugin quota, atomic writes, and cleanup on uninstall. The store must not be available to other plugins. Then migrate `LibraryState` metadata to settings and image bytes to storage, and stop pruning history. The current plugin stores resized references and bounded history in settings; it does not call a storage API that stock Photon lacks.
+2. The new Library config file still has a 1 MB limit. To keep full-resolution reference files, add plugin-scoped binary storage in the same controller and SDK. A safe shape is `storage.write(id, bytes)`, `storage.read(id)`, and `storage.delete(id)` with path-free, plugin-scoped IDs, a total per-plugin quota, atomic writes, and cleanup on uninstall. Keep Library metadata in its separate config file, migrate image bytes into binary storage, and stop pruning history once it has its own bounded or paged store. The current plugin stores resized references and bounded history in `config-library.json`; it does not call a binary API that stock Photon lacks.
 
-After a host change, rebuild `app.asar` from Photon source rather than editing the hashed renderer bundle by string replacement. Compare the new archive with `app.asar.bak`, quit all Photon Studio processes before replacement, and relaunch to load the new archive.
+For the product release, rebuild `app.asar` from Photon source instead of string-patching a hashed renderer bundle. The local migration below is a guarded bridge for users of the patched development installation. Quit all Photon Studio processes before archive replacement and relaunch to load the result.
+
+## Moving a local installation to Photon Studio 0.1.43
+
+`scripts/migrate-photon-asar.mjs` carries the reviewed 0.1.42 local changes in the controller, native panel bundle, and panel stylesheet to an **unpatched** 0.1.43 archive. `scripts/photon-0.1.42-patches.json` contains the small, anchored edits between stock 0.1.42 and the local build, including `sdk.config.get/set`. The script locates hashed renderer files by their stable names, checks the target package version, requires a unique match for every edit, and checks the staged JavaScript and archive contents. If an anchor has changed in 0.1.43, it stops before installing and reports the exact file and hunk for a manual port. It never substitutes the full 0.1.42 archive for 0.1.43.
+
+After installing 0.1.43 and fully closing Photon Studio, run from this repository in PowerShell:
+
+```powershell
+node scripts/migrate-photon-asar.mjs --target "$env:LOCALAPPDATA\Programs\Photon Studio\resources\app.asar" --expected-version 0.1.43 --install
+```
+
+The script stages and verifies `app.asar.photon-ai-staged-<timestamp>`, copies the current plugin data directory to a timestamped backup, moves the original 0.1.43 archive into that backup directory, and installs the patched archive. Omit `--install` to stop after staging and inspect the output; that staging run leaves its archive on disk. The script refuses installation while Photon Studio is running. Use `--data-dir` if Photon's plugin data is somewhere other than `%APPDATA%\Photon Studio\plugins\data`; use `--backup-dir` for a different backup location outside this repository. Plugin settings and credential files stay in their existing private data directory. Reopen Photon Studio and reload the development plugin folder after installation.
+
+The 0.1.42 config patch was installed locally on 2026-10-06. Its prior archive is `resources/app.asar.before-config-2026-10-06`, and the plugin data backup is `%APPDATA%\Photon Studio\plugins\data.before-config-2026-10-06`. The 0.1.43 migration script cannot be qualified against that release until its archive is available.

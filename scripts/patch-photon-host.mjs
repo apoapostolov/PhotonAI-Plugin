@@ -1,4 +1,4 @@
-// Build a Photon Studio ASAR with the editor-wide custom dialog capability.
+// Build a Photon Studio ASAR with editor-wide dialogs and plugin config files.
 // Usage: node scripts/patch-photon-host.mjs <input app.asar> <output app.asar>
 import {createHash} from 'node:crypto';
 import {createReadStream,createWriteStream} from 'node:fs';
@@ -29,7 +29,6 @@ if(!entry?.offset||!entry?.size)throw Error('Photon plugin controller not found.
 const handle=await open(input,'r'),original=Buffer.alloc(entry.size);
 try{await handle.read(original,0,original.length,base+Number(entry.offset));}finally{await handle.close();}
 let source=original.toString('utf8');
-if(source.includes('PHOTON_AI_CUSTOM_DIALOG'))throw Error('This ASAR already has the custom dialog patch.');
 const marker='    if (method === "ui.theme") return i.theme ?? { name: "dark", tokens: {} };';
 if(!source.includes(marker))throw Error('Unknown Photon controller version; patch it from source instead.');
 const addition=`\n    // PHOTON_AI_CUSTOM_DIALOG: promote this plugin-owned custom panel above the editor.
@@ -48,7 +47,20 @@ const addition=`\n    // PHOTON_AI_CUSTOM_DIALOG: promote this plugin-owned cust
       }
       return null;
     }`;
-source=source.replace(marker,marker+addition);
+if(!source.includes('PHOTON_AI_CUSTOM_DIALOG'))source=source.replace(marker,marker+addition);
+const settingsMarker='    if (method === "settings.get") return this.json(i, "settings.json");';
+if(!source.includes(settingsMarker))throw Error('Unknown Photon settings implementation; patch it from source instead.');
+if(source.includes('PHOTON_AI_PLUGIN_CONFIG'))throw Error('This ASAR already has the plugin config patch.');
+const configAddition=`    // PHOTON_AI_PLUGIN_CONFIG: bounded JSON files under this plugin's private data directory.
+    if (method === "config.get" || method === "config.set") {
+      if (!["library", "templates", "history", "references"].includes(p.id)) throw new Error("Invalid plugin config id.");
+      const name = "config-" + p.id + ".json";
+      if (method === "config.get") return this.json(i, name);
+      if (!p.value || typeof p.value !== "object" || Array.isArray(p.value)) throw new Error("Plugin config must be an object.");
+      return this.exclusive(i, () => this.save(i, name, p.value));
+    }
+`;
+source=source.replace(settingsMarker,configAddition+settingsMarker);
 const patched=Buffer.from(source,'utf8');
 const size=(await stat(input)).size;
 entry.offset=String(size-base);

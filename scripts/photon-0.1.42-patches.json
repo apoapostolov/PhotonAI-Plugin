@@ -1,0 +1,113 @@
+{
+  "baselineVersion": "0.1.42",
+  "files": {
+    "controller": {
+      "oldSha256": "272b6d5d5b3af1130cc208ba8b25bfcddd4eef1c4641525d0c42ea6e1ef27680",
+      "newSha256": "8dc09cbcd7a2a0320c0c10bada95f5f9015f07cc7b996b0114ddfed5d6c93843",
+      "edits": [
+        {
+          "before": "",
+          "after": "    // PHOTON_AI_CUSTOM_DIALOG: promote this plugin-owned custom panel above the editor.\n    if (method === \"ui.customDialog\") {\n      const entry = i.plugin.entrypoints.find((e) => e.id === i.entrypoint);\n      if (entry?.ui !== \"custom\" || typeof p.open !== \"boolean\") throw new Error(\"Invalid custom dialog request.\");\n      i.dialogOpen = p.open;\n      if (p.open) {\n        const [width, height] = i.owner.getContentSize();\n        i.owner.contentView.addChildView(i.view);\n        i.view.setBounds({ x: 0, y: 0, width, height });\n        i.view.webContents.focus();\n      } else {\n        if (i.bounds) i.view.setBounds(i.bounds);\n        i.editor.focus();\n      }\n      return null;\n    }\n",
+          "left": "ials.\") && !permissions.credentials) throw new Error(\"Plugin does not declare credential storage.\");\n    if (method === \"ui.theme\") return i.theme ?? { name: \"dark\", tokens: {} };\n",
+          "right": "    if (method === \"ui.render\") {\n      const entry = i.plugin.entrypoints.find((e) => e.id === p.panel);\n      if (!entry || entry.ui !== \"native\") throw new Error(\"Undeclared nat"
+        },
+        {
+          "before": "",
+          "after": "      if (p.update) { if (s.dialog) i.editor.send(\"plugins:panel-state\", { id: i.id, hasMenu: false, sdkDialog: { id: s.dialog.id, model: p.model, update: true } }); return null; }\n",
+          "left": "owMessageBox(i.owner, { title: i.plugin.name, message: String(p.message).slice(0, 4e3) });\n      return null;\n    }\n    if (method === \"ui.dialog\") {\n      validatePanel(p.model);\n",
+          "right": "      if (s.dialog) throw new Error(\"Close the current plugin dialog first.\");\n      const id2 = (0, import_node_crypto3.randomUUID)();\n      return new Promise((resolve) => {\n    "
+        },
+        {
+          "before": "",
+          "after": "    }\n    // PHOTON_AI_PLUGIN_CONFIG: bounded JSON files under this plugin's private data directory.\n    if (method === \"config.get\" || method === \"config.set\") {\n      if (![\"library\", \"templates\", \"history\", \"references\"].includes(p.id)) throw new Error(\"Invalid plugin config id.\");\n      const name = \"config-\" + p.id + \".json\";\n      if (method === \"config.get\") return this.json(i, name);\n      if (!p.value || typeof p.value !== \"object\" || Array.isArray(p.value)) throw new Error(\"Plugin config must be an object.\");\n      return this.exclusive(i, () => this.save(i, name, p.value));\n",
+          "left": "esolve) => {\n        s.dialog = { id: id2, resolve };\n        i.editor.send(\"plugins:panel-state\", { id: i.id, hasMenu: false, sdkDialog: { id: id2, model: p.model } });\n      });\n",
+          "right": "    }\n    if (method === \"settings.get\") return this.json(i, \"settings.json\");\n    if (method === \"settings.set\") {\n      if (!p.value || typeof p.value !== \"object\" || Array.isArr"
+        },
+        {
+          "before": "",
+          "after": "      }\n      if (method === \"credentials.store\") {\n        const origin = requestOrigin(p.origin);\n        const allowed = (permissions.network ?? []).some((pattern) => matchesOrigin(origin, pattern)) || s.approved.has(origin);\n        if (origin !== p.origin || !allowed) throw new Error(\"Approve the credential endpoint first.\");\n        if (typeof p.value !== \"string\" || !p.value || p.value.length > 65536 || /[\\r\\n]/.test(p.value)) throw new Error(\"Invalid session.\");\n        const value = p.value;\n        const persistent = this.encrypted();\n        await this.exclusive(i, async () => {\n          const records = await this.json(i, \"credentials.json\");\n          if (persistent) {\n            records[id2] = { origin, session: true, value: import_electron2.safeStorage.encryptString(value).toString(\"base64\") };\n            this.sessionKeys.delete(i.plugin.key + \":\" + id2);\n          } else {\n            delete records[id2];\n            this.sessionKeys.set(i.plugin.key + \":\" + id2, { origin, session: true, value });\n          }\n          await this.save(i, \"credentials.json\", records);\n        });\n        return null;\n      }\n      if (method === \"credentials.read\") {\n        const memory = this.sessionKeys.get(i.plugin.key + \":\" + id2);\n        if (memory) return memory.session === true ? memory.value : \"\";\n        const record = (await this.json(i, \"credentials.json\"))[id2];\n        if (!record || record.session !== true || !this.encrypted()) return \"\";\n        return import_electron2.safeStorage.decryptString(Buffer.from(record.value, \"base64\"));\n",
+          "left": "lugin.key + \":\" + id2, { origin, value });\n          await this.save(i, \"credentials.json\", records);\n        });\n        return { id: id2, configured: true, persistent, origin };\n",
+          "right": "      }\n    }\n    if (method === \"network.allowEndpoint\") {\n      if (!permissions.customEndpoints) throw new Error(\"Plugin does not declare custom endpoints.\");\n      const origin"
+        },
+        {
+          "before": "",
+          "after": "    if (typeof p.authorization === \"string\" && p.authorization) {\n      if (!p.authorization.startsWith(\"Bearer \") || p.authorization.length > 16384 || /[\\r\\n]/.test(p.authorization)) throw new Error(\"Invalid authorization.\");\n      headers.Authorization = p.authorization;\n    }\n",
+          "left": "ludes(header)) throw new Error(\"Unsupported credential header.\");\n      headers[header] = (p.credential.prefix ?? (header === \"Authorization\" ? \"Bearer \" : \"\")) + key.value;\n    }\n",
+          "right": "    let body;\n    if (p.json !== void 0) {\n      const text = JSON.stringify(p.json);\n      if (Buffer.byteLength(text) > 64 * 1024 * 1024) throw new Error(\"Provider request exceed"
+        },
+        {
+          "before": "",
+          "after": "    }\n    if (p.form !== void 0) {\n      if (body || !p.form || typeof p.form !== \"object\" || Array.isArray(p.form)) throw new Error(\"Invalid form request.\");\n      const params = new URLSearchParams();\n      for (const [key, value] of Object.entries(p.form)) {\n        if (typeof value !== \"string\") throw new Error(\"Invalid form field.\");\n        params.append(key, value);\n      }\n      headers[\"Content-Type\"] = \"application/x-www-form-urlencoded\";\n      body = params.toString();\n",
+          "left": ".text ?? \"\");\n          form.append(part.name, part.text ?? \"\");\n        }\n      }\n      if (size2 > 64 * 1024 * 1024) throw new Error(\"Upload exceeds 64 MB.\");\n      body = form;\n",
+          "right": "    }\n    let response = await fetch(url, { method, headers, body, signal, redirect: \"manual\", credentials: \"omit\" });\n    for (let count = 0; response.status >= 300 && response.st"
+        },
+        {
+          "before": "    const view = new import_electron3.WebContentsView({ webPreferences: { preload: import_node_path8.default.join(__dirname, \"preload.js\"), session: isolated, sandbox: true, contextIsolation: true, nodeIntegration: false, webSecurity: true, backgroundThrottling: true } });\n",
+          "after": "    const view = new import_electron3.WebContentsView({ webPreferences: { preload: import_node_path8.default.join(__dirname, \"preload.js\"), session: isolated, sandbox: true, contextIsolation: true, nodeIntegration: false, webSecurity: true, backgroundThrottling: false } });\n    view.webContents.setBackgroundThrottling(false);\n",
+          "left": "ckage.enabled || currentPackage.sha256 !== plugin.sha256 || editor.isDestroyed() || owner.isDestroyed()) throw new Error(\"Plugin or editor changed while the panel was starting.\");\n",
+          "right": "    view.setBackgroundColor(\"#00000000\");\n    const instance = { id: (0, import_node_crypto5.randomUUID)(), plugin, entrypoint: entry.id, editor, view, owner, theme: request.theme,"
+        }
+      ]
+    },
+    "nativePanel": {
+      "oldSha256": "66981c94c4a62990184f931311c1344bfebf841352981292d741609e47e0bb35",
+      "newSha256": "e2f514aeb76937cbd2ec6d59fe9fbda6fd7b05474e4e9db98b7b0aa0ec0afd46",
+      "edits": [
+        {
+          "before": "",
+          "after": "e.id===\"codeRow\"?\"photon-native-inline\":",
+          "left": " w({model:a,panel:o,onEvent:t}){const n=(e,s)=>{const r=e.label??e.id??\"\",p=d=>t({id:e.id??\"\",panel:o,value:d});let m;switch(e.type){case\"group\":return i.jsxs(\"section\",{className:",
+          "right": "\"photon-native-group\",children:[e.label&&i.jsx(\"h3\",{children:e.label}),e.children?.map(n)]},e.id??s);case\"text\":return i.jsx(\"p\",{className:e.tone===\"danger\"?\"photon-plugin-error\""
+        },
+        {
+          "before": "",
+          "after": "if(e.id===\"copy\"){m=i.jsx(\"button\",{type:\"button\",className:\"photon-copy-glyph\",\"aria-label\":\"Copy to clipboard\",disabled:e.disabled,onMouseDown:event=>{event.preventDefault();event.stopPropagation();},onClick:event=>{event.preventDefault();event.stopPropagation();copyNow(String(e.value??\"\"));},children:i.jsx(\"svg\",{viewBox:\"0 0 24 24\",width:\"16\",height:\"16\",\"aria-hidden\":\"true\",children:i.jsx(\"path\",{fill:\"currentColor\",d:\"M8 7a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-1v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2Zm0 2H6v10h8v-2H8V9Zm2-2v9h7V7h-7Z\"})})});}else ",
+          "left": "ext\":return i.jsx(\"p\",{className:e.tone===\"danger\"?\"photon-plugin-error\":\"photon-native-copy\",role:e.tone===\"danger\"?\"alert\":void 0,children:e.text??e.label},e.id??s);case\"button\":",
+          "right": "m=i.jsx(x,{density:\"compact\",tone:e.tone===\"primary\"?\"primary\":void 0,disabled:e.disabled,onClick:()=>p(),children:r});break;case\"input\":m=i.jsx(f,{label:r,\"aria-label\":r,value:Str"
+        },
+        {
+          "before": "",
+          "after": "r&&",
+          "left": "ue:void 0})]});break}const b=[\"input\",\"textarea\",\"number\",\"select\"].includes(e.type);return i.jsxs(\"div\",{className:\"photon-native-control\",\"aria-disabled\":e.disabled,children:[b&&",
+          "right": "i.jsx(\"label\",{children:r}),m,e.description&&i.jsx(\"small\",{children:e.description})]},e.id??s)};return i.jsx(\"div\",{className:\"photon-native-controls\",children:a.controls.map(n)})"
+        },
+        {
+          "before": "O({model:a,finish:o,close:t}){const[n,e]=c.useState(()=>S(a.controls)",
+          "after": "copyNow(value){const text=String(value??\"\");if(!text)return;const restore=document.activeElement;const area=document.createElement(\"textarea\");area.value=text;area.readOnly=true;area.tabIndex=-1;area.setAttribute(\"aria-hidden\",\"true\");area.style.cssText=\"position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none\";const root=restore instanceof Element&&restore.closest(\"[role=dialog]\")||document.body;root.appendChild(area);area.focus({preventScroll:true});area.select();try{document.execCommand(\"copy\");}catch{}area.remove();if(restore instanceof HTMLElement)restore.focus({preventScroll:true});void navigator.clipboard?.writeText(text).catch(()=>{});}function signInUrl(model){return model.controls?.find(control=>control.type===\"text\"&&typeof control.text===\"string\"&&control.text.startsWith(\"https://\"))?.text;}const dialogWatch=new Map;function O({model:a,finish:o,close:t,holder:holder}){const[g,setG]=c.useState(a),[n,e]=c.useState(()=>S(a.controls));c.useEffect(()=>{holder.update=setG;},[holder]);c.useEffect(()=>{e(S(g.controls));},[g]);c.useEffect(()=>{const hasCopy=controls=>Array.isArray(controls)&&controls.some(control=>control?.id===\"copy\"||hasCopy(control?.children));if(!hasCopy(a.controls))return;copyNow(n.code);},[]",
+          "left": "el\",{children:r}),m,e.description&&i.jsx(\"small\",{children:e.description})]},e.id??s)};return i.jsx(\"div\",{className:\"photon-native-controls\",children:a.controls.map(n)})}function ",
+          "right": ");return c.useEffect(()=>()=>o(null),[o]),i.jsx(w,{model:{...a,controls:N(a.controls,n)},panel:\"dialog\",onEvent:s=>{P(a.controls,s.id)?.type===\"button\"?(o({...s,values:n}),t()):e(p"
+        },
+        {
+          "before": "a,controls:N(a.controls,n)},panel:\"dialog\",onEvent:s=>{P(a",
+          "after": "g,controls:N(g.controls,n)},panel:\"dialog\",onEvent:s=>{if(s.id===\"copy\"||s.id===\"open\"){if(s.id===\"copy\")copyNow(n.code);else{const url=signInUrl(g);if(url)void window.photon?.openExternal(url);}return;}P(g",
+          "left": "e-controls\",children:a.controls.map(n)})}function O({model:a,finish:o,close:t}){const[n,e]=c.useState(()=>S(a.controls));return c.useEffect(()=>()=>o(null),[o]),i.jsx(w,{model:{...",
+          "right": ".controls,s.id)?.type===\"button\"?(o({...s,values:n}),t()):e(p=>({...p,[s.id]:s.value}))}})}function T(a,o,t){let n=!1;const e=s=>{n||(n=!0,t(s))};C({kind:\"custom\",id:`photon-plugin"
+        },
+        {
+          "before": "o,t){let n=!1;const e=s=>{n||(n=!0,t(s))};C({kind:\"custom\",id:`photon-plugin-dialog-${a}`,title:o",
+          "after": "model,finish){const slot=dialogWatch.get(a);if(slot){slot.update(model);return;}let settled=!1;const done=event=>{if(settled)return;settled=!0;dialogWatch.delete(a);finish(event);};const holder={update(){}};dialogWatch.set(a,holder);C({kind:\"custom\",id:`photon-plugin-dialog-${a}`,title:model",
+          "left": ".jsx(w,{model:{...a,controls:N(a.controls,n)},panel:\"dialog\",onEvent:s=>{P(a.controls,s.id)?.type===\"button\"?(o({...s,values:n}),t()):e(p=>({...p,[s.id]:s.value}))}})}function T(a,",
+          "right": ".title??\"Plugin\",width:440,footer:null,render:({close:s})=>i.jsx(O,{model:o,finish:e,close:s})})}function V({label:a,origin:o,finish:t,close:n}){const e=y(),[s,r]=c.useState(\"\");re"
+        },
+        {
+          "before": ":s})=>i.jsx(O,{model:o,finish:e,close:s",
+          "after": "})=>i.jsx(O,{model,finish:done,close,holder",
+          "left": "d]:s.value}))}})}function T(a,o,t){let n=!1;const e=s=>{n||(n=!0,t(s))};C({kind:\"custom\",id:`photon-plugin-dialog-${a}`,title:o.title??\"Plugin\",width:440,footer:null,render:({close",
+          "right": "})})}function V({label:a,origin:o,finish:t,close:n}){const e=y(),[s,r]=c.useState(\"\");return c.useEffect(()=>()=>t(null),[t]),i.jsxs(\"form\",{className:\"photon-native-controls\",onSu"
+        }
+      ]
+    },
+    "nativeCss": {
+      "oldSha256": "81e3ccb30ceeebe4847aa067581a44d2686c608c410bfe813303aa79a33a3d01",
+      "newSha256": "3b7daeff888926a90509e40b9192f029758e7ecc913d85a76fdbb6e08dfdd273",
+      "edits": [
+        {
+          "before": "",
+          "after": "\n.photon-native-inline{display:flex;flex-direction:row;align-items:center;gap:4px;border:0;padding:0;min-width:0}.photon-native-inline>.photon-native-control{flex:1;min-width:0}.photon-native-inline>.photon-native-control:last-child{flex:0 0 auto}.photon-native-inline input{width:100%;box-sizing:border-box}.photon-copy-glyph{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin:0;padding:0;border:0;background:transparent;color:var(--ph-muted);cursor:pointer}.photon-copy-glyph:hover{color:var(--ph-text)}\n",
+          "left": "tion:column;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--ph-hairline);font-size:12px}.photon-native-panel progress{width:100%;accent-color:var(--ph-accent)}\n",
+          "right": ""
+        }
+      ]
+    }
+  }
+}

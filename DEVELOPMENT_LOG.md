@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+### Photon Studio 0.1.43 migration path (2026-10-06)
+
+Added `scripts/migrate-photon-asar.mjs` and the anchored 0.1.42 patch manifest.
+After Photon Studio is updated to 0.1.43, the script can locate its hashed
+panel assets, carry forward the controller, sign-in, full-window dialog, and
+per-plugin config edits, stage and verify the new archive, back up plugin data,
+and install it while Photon is closed. Changed patch anchors stop the migration
+with a file and hunk number for manual porting. No 0.1.43 archive is installed
+yet, so compatibility with that release remains unverified.
+
+The 0.1.42 archive with `sdk.config.get/set` was installed while Photon Studio
+was closed. The prior archive is `resources/app.asar.before-config-2026-10-06`;
+the private plugin data backup is
+`%APPDATA%/Photon Studio/plugins/data.before-config-2026-10-06`. The editable
+Library migration will run when the new plugin build first loads.
+
+### Reference thumbnail close alignment (2026-10-06)
+
+The remove-reference control on main-panel and template-card thumbnails now
+draws its cross with two centered CSS strokes. Its accessible name stays on
+the button. The change uses the Photon text token and no new host patch.
+
+### Separate plugin configuration files (2026-10-06)
+
+The thirty shipped template definitions now live in
+`config/premade-templates.json` and ship as a separate package file. The
+plugin reads and writes editable Library state through `sdk.config.get/set`
+in a plugin-owned `config-library.json`; main `settings.json` keeps provider
+preferences and model cache only. On first load, the plugin copies an older
+Library out of settings, writes the new config file, and then clears the old
+settings field. Existing template edits, deletions, folders, references,
+history, and order are preserved. A host controller patch is required for
+this new capability; see `docs/photon-host-changes.md`.
+
 ### Prompt-save error color (2026-10-06)
 
 The empty-prompt save message now uses Photon's normal text color while its

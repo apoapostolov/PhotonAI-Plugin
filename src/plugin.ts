@@ -12,12 +12,15 @@ import {signInDialog,updateSignInDialog} from './signin';
 import {loadAccountQuota} from './providers/quota';
 import {cleanLibrary,fillTemplate,migrateTemplateSyntax,newId,recordPrompt,referenceBytes,REFERENCE_BUDGET,ROOT_FOLDER,templateFields,type LibraryState,type ReferenceImage,type TemplateItem,type TemplateField} from './library';
 import {seedPremadeTemplates} from './premade-templates';
+import {readPluginConfig,writePluginConfig} from './plugin-config';
 import type {CustomPanel} from './custom-ui';
 interface Settings {provider:ProviderId;models:Partial<Record<ProviderId,string>>;customBase:string;customModel:string;customEdit:boolean;customSizes:string;customQualities:string;customMaxEdge:number;modelCache:Partial<Record<ProviderId,ModelCacheEntry>>;library:LibraryState;}
 interface Result {bytes:Uint8Array;image:ImagePixels;capture?:Capture;name:string;mode:Mode;target?:{documentId:string;revision:number};}
 export async function activate(api:PhotonApi,panel?:CustomPanel){
-  let settings:Settings={provider:'openai',models:{},customBase:'https://api.openai.com/v1',customModel:'',customEdit:true,customSizes:'1024x1024,1536x1024,1024x1536',customQualities:'',customMaxEdge:2048,modelCache:{},library:cleanLibrary(undefined),...await api.settings.get<Partial<Settings>>()};
-  settings.library=cleanLibrary(settings.library);
+  const oldSettings=await api.settings.get<Partial<Settings>>();
+  const storedLibrary=await readPluginConfig<unknown>('library');
+  const hasStoredLibrary=!!storedLibrary&&typeof storedLibrary==='object'&&Array.isArray((storedLibrary as Partial<LibraryState>).templates)&&Array.isArray((storedLibrary as Partial<LibraryState>).prompts);
+  let settings:Settings={provider:'openai',models:{},customBase:'https://api.openai.com/v1',customModel:'',customEdit:true,customSizes:'1024x1024,1536x1024,1024x1536',customQualities:'',customMaxEdge:2048,modelCache:{},...oldSettings,library:cleanLibrary(hasStoredLibrary?storedLibrary:oldSettings.library)};
   const seededTemplates=seedPremadeTemplates(settings.library);
   const migratedTemplateSyntax=migrateTemplateSyntax(settings.library);
   settings.modelCache=sanitizeModelCache(settings.modelCache);
@@ -35,7 +38,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
   const endpoint=()=>settings.provider==='custom'?new URL(settings.customBase).origin:provider().origin;
   const refreshContext=async()=>{const doc=await api.documents.active();hasSelection=!!doc?.hasSelection;};
   const clearResult=async()=>{if(result?.capture)await api.documents.release(result.capture.token).catch(()=>{});result=undefined;};
-  const save=()=>{const bytes=()=>new TextEncoder().encode(JSON.stringify(settings)).length;while(bytes()>940_000&&settings.library.history.length>0)settings.library.history.shift();if(bytes()>940_000)throw new PluginError('LIBRARY_FULL','The library is full. Remove saved cards or image references before adding more.');return api.settings.set(settings as unknown as Record<string,unknown>);};
+  const save=async()=>{const bytes=()=>new TextEncoder().encode(JSON.stringify(settings.library)).length;while(bytes()>940_000&&settings.library.history.length>0)settings.library.history.shift();if(bytes()>940_000)throw new PluginError('LIBRARY_FULL','The library is full. Remove saved cards or image references before adding more.');await writePluginConfig('library',settings.library as unknown as Record<string,unknown>);const {library:_library,...mainSettings}=settings;await api.settings.set(mainSettings as Record<string,unknown>);};
   const fieldControl=(field:TemplateField):Control=>{
     const id='templateField:'+field.name,value=templateValues[field.name];
     if(field.kind==='check')return {type:'checkbox',id,label:field.name,value:value==='true',disabled:busy,description:field.choices?.[1]?.content?'Unchecked: '+field.choices[1].content:undefined};
@@ -47,7 +50,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
     if(field.options.length)return {type:'select',id,label:field.name,value:value??field.options[0],disabled:busy,options:field.options.map(option=>({value:option,label:option}))};
     return {type:'input',id,label:field.name,value:value??'',disabled:busy};
   };
-  if(seededTemplates||migratedTemplateSyntax)await save();
+  if(seededTemplates||migratedTemplateSyntax||!hasStoredLibrary||oldSettings.library!==undefined)await save();
   const refreshCredential=async()=>{const info=await api.credentials.status(keyId());credential=info.configured;try{credential=credential&&info.origin===endpoint();}catch{credential=false;}persistent=info.persistent;};
   const listContext=(id:ProviderId)=>({api,credential:id,job:{id:'models',signal:listAbort.signal,progress:async()=>{}}});
   const refreshModels=async(id:ProviderId,force:boolean)=>{

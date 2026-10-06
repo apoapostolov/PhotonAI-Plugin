@@ -72,6 +72,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 }
 .reference-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .reference-thumb button { position: absolute; top: 0; right: 0; width: 17px; height: 17px; padding: 0; border: 0; background: var(--ph-glass-plate-strong); color: var(--ph-text); }
+.reference-thumb button::before, .reference-thumb button::after, .card-reference > button::before, .card-reference > button::after { content: ""; position: absolute; top: 50%; left: 50%; width: 9px; height: 1px; background: currentColor; transform: translate(-50%, -50%) rotate(45deg); }
+.reference-thumb button::after, .card-reference > button::after { transform: translate(-50%, -50%) rotate(-45deg); }
 .reference-add { cursor: pointer; color: var(--ph-muted); font-size: 20px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 small { color: var(--ph-muted); }
@@ -168,7 +170,8 @@ small { color: var(--ph-muted); }
 .add-reference:hover { background: var(--ph-control-hover); color: var(--ph-text); }
 .card-reference { position: relative; display: inline-grid; place-items: center; width: 24px; height: 24px; flex: none; border: 1px solid var(--ph-stroke); background: var(--ph-control); }
 .card-reference-thumb { width: 100%; height: 100%; object-fit: cover; }
-.card-reference > button { position: absolute; top: 0; right: 0; width: 12px; height: 12px; padding: 0; border: 0; background: var(--ph-glass-plate-strong); color: var(--ph-text); font-size: 11px; line-height: 1; opacity: 0; }
+.card-reference > button { position: absolute; top: 0; right: 0; width: 12px; height: 12px; padding: 0; border: 0; background: var(--ph-glass-plate-strong); color: var(--ph-text); opacity: 0; }
+.card-reference > button::before, .card-reference > button::after { width: 7px; }
 .card-reference:hover > button, .card-reference:focus-within > button { opacity: 1; }
 .card-reference-preview { position: absolute; z-index: 5; left: 0; bottom: calc(100% + 5px); display: none; width: 104px; height: 104px; padding: 3px; border: 1px solid var(--ph-stroke-strong); background: var(--ph-black-5); box-shadow: var(--ph-hairline); pointer-events: none; }
 .card-reference-preview img { width: 100%; height: 100%; object-fit: contain; }

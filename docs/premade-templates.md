@@ -1,5 +1,10 @@
 # Premade templates
 
+The 30 shipped definitions live in `config/premade-templates.json`, which is
+copied into the plugin package. The plugin bundles that file for startup and
+stores editable Library state in its own per-plugin config file; main
+`settings.json` does not hold the premade cards.
+
 The Template library starts with 30 editable cards. Version 3 adds the 20 new
 cards to existing libraries and appends them after the current order. It does
 not restore deleted older starters or overwrite edited cards. Version 2
