@@ -4,7 +4,7 @@ AI Studio uses a custom Photon panel. The Library and Templates buttons sit on o
 
 ## Library
 
-Save the current prompt with the icon inside the prompt field. Saved prompts and History have separate tabs in Library. Folder names are entered directly in the sidebar. Card actions use the pen, trash, and magic wand icons from `svg/`; the same trash SVG deletes folders and removes an applied template from the prompt. The icons follow Photon skin colors. Edit opens a larger dialog above the Library or Templates dialog. Its toolbar inserts basic Markdown syntax for headings, emphasis, quotes, lists, links, images, tables, code, and rules. Save applies the changes; Cancel leaves the card untouched. To delete a folder, prompt, history entry, or template, click its trash glyph twice within two seconds. The first click turns it red; clicking elsewhere or waiting two seconds cancels deletion. Each submitted provider request records the full text sent to the provider, including expanded template context. Similar revisions appear as a stack; expand a stack to edit, delete, reorder, or reuse an earlier version. Use copies a prompt into the visible prompt field and closes Library.
+Save the current prompt with the icon inside the prompt field. Saved prompts and History have separate tabs in Library. Folder names are entered directly in the sidebar. Card actions use the pen, trash, and magic wand icons from `svg/`; folder rename uses that pen SVG, and the same trash SVG deletes folders and removes an applied template from the prompt. The icons follow Photon skin colors. Edit opens a larger dialog above the Library or Templates dialog. Its toolbar inserts basic Markdown syntax for headings, emphasis, quotes, lists, links, tables, code, and rules. The inline code button reads Code. Images are attached as references rather than inserted as Markdown image links. Save applies the changes; Cancel leaves the card untouched. To delete a folder, prompt, history entry, or template, click its trash glyph twice within two seconds. The first click turns it red; clicking elsewhere or waiting two seconds cancels deletion. Each submitted provider request records the full text sent to the provider, including expanded template context. Similar revisions appear as a stack; expand a stack to edit, delete, reorder, or reuse an earlier version. Use copies a prompt into the visible prompt field and closes Library.
 
 ## Templates
 
@@ -50,10 +50,12 @@ fields are converted once when the library loads; ordinary JSON keys stay
 unchanged. Values typed into a field are inserted as written and are not
 parsed for more tags.
 
-The template editor has buttons that insert editable examples of every field
-type: text, dropdown, radio, multiple checkboxes, one-state checkbox, and
-two-state checkbox. New Template opens the same editor. Cancel discards a new
-template without adding an empty card.
+The template editor has a second toolbar directly below Markdown with buttons
+that insert editable examples of every field type: text, dropdown, radio,
+multiple checkboxes, one-state checkbox, and two-state checkbox. Both toolbar
+lines use the same button style and scroll horizontally in a narrow dialog.
+New Template opens the same editor. Cancel discards a new template without
+adding an empty card.
 
 Thirty editable premade cards are installed into All templates once per library.
 Their workflows and research sources are in [Premade templates](premade-templates.md).

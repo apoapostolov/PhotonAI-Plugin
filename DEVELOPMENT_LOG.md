@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Editor toolbar and folder icon polish (2026-10-06)
+
+The template editor presents Markdown actions and field insertion as two
+matching, single-line toolbars. Narrow dialogs scroll each toolbar
+horizontally instead of wrapping buttons into extra rows. Markdown image
+insertion was removed because images are attached as references. The inline
+code action now reads Code. Folder rename uses the same bundled pen SVG as
+card editing, sized and centered beside the folder trash SVG. These are
+plugin UI changes and require no new Photon `app.asar` patch.
+
 ### Thirty premade templates (2026-10-06)
 
 The Template library now includes 30 starters. Version 3 seeds twenty new
@@ -43,7 +53,7 @@ Photon `app.asar` patch.
 
 Editing a Library, History, or Templates card now opens a second modal layer
 above the collection dialog. The editor has a large textarea and Markdown
-toolbar for headings, emphasis, quotes, lists, links, images, tables, code,
+toolbar for headings, emphasis, quotes, lists, links, tables, code,
 and rules.
 Template editing adds insertion buttons for all six field examples. New
 Template opens the editor directly; Cancel does not create an empty card.

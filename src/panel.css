@@ -106,7 +106,7 @@ small { color: var(--ph-muted); }
 .folder-row .folder { flex: 1; }
 .folder.active { background: var(--ph-control-active); }
 .folder:hover, .folder-row button:hover, .new-folder:hover { background: var(--ph-control-hover); }
-.folder-row button:not(.folder) { width: 20px; height: 23px; flex: none; padding: 0; text-align: center; color: var(--ph-muted); }
+.folder-row button:not(.folder) { display: grid; place-items: center; width: 20px; height: 23px; flex: none; padding: 0; color: var(--ph-muted); }
 .folder-row button.delete-armed, .folder-row button.delete-armed:hover { color: var(--ph-danger); border: 1px solid var(--ph-danger); background: var(--ph-control-hover); }
 .new-folder { flex: none; margin-top: 6px; padding: 5px 7px; color: var(--ph-muted); }
 .collection-content { min-width: 0; overflow: auto; padding: 9px; }
@@ -181,11 +181,10 @@ small { color: var(--ph-muted); }
 .editor-name { display: flex; flex-direction: column; gap: 4px; color: var(--ph-muted); }
 .editor-name input, .item-editor textarea { width: 100%; padding: 7px; border: 1px solid var(--ph-stroke); background: var(--ph-black-4); color: var(--ph-text); }
 .editor-name input { color: var(--ph-text); }
-.editor-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
-.editor-tools button { min-height: 25px; padding: 3px 7px; border: 1px solid var(--ph-stroke); background: var(--ph-black-6); color: var(--ph-text); }
+.editor-toolbars { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.editor-tools { display: flex; flex-wrap: nowrap; align-items: center; gap: 3px; min-width: 0; overflow-x: auto; }
+.editor-tools button { flex: none; min-height: 25px; padding: 3px 7px; border: 1px solid var(--ph-stroke); background: var(--ph-black-6); color: var(--ph-text); }
 .editor-tools button:hover { background: var(--ph-control-hover); }
-.editor-field-tools { padding-top: 6px; border-top: 1px solid var(--ph-stroke); }
-.editor-field-tools > span { margin-right: 4px; color: var(--ph-muted); }
 .editor-text-label { color: var(--ph-muted); }
 .item-editor textarea { min-height: 150px; flex: 1; resize: none; line-height: 1.5; }
 .editor-transparent { display: flex; align-items: center; gap: 7px; }
