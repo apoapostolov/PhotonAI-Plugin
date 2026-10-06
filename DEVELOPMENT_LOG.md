@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Template conversion row labels (2026-10-07)
+
+The template editor now shows `[model] · Convert to: JSON Text` at the right
+of the Transparent image row. The two buttons keep their existing conversion
+behavior and availability rules. This is a plugin UI change; no ASAR patch is
+needed.
+
 ### Separate Library and Templates modal (2026-10-06)
 
 The previous `ui.customDialog` host patch promoted the entire custom panel

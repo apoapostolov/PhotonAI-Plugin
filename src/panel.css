@@ -212,7 +212,9 @@ body.collection-modal .collection-dialog { width: 100vw; height: 100vh; }
 .template-rich-editor { min-height: 150px; flex: 1; padding: 7px; border: 1px solid var(--ph-stroke); background: var(--ph-black-4); color: var(--ph-text); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; overflow: auto; outline: none; }
 .template-rich-editor:focus { border-color: var(--ph-stroke-strong); }
 .editor-conversion { display: flex; align-items: center; justify-content: flex-end; gap: 5px; min-width: 0; margin-left: auto; white-space: nowrap; }
-.editor-conversion span { overflow: hidden; color: var(--ph-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.editor-conversion-model { display: inline-flex; min-width: 0; max-width: 180px; color: var(--ph-muted); font-size: 11px; white-space: nowrap; }
+.editor-conversion-model span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.editor-conversion-dot, .editor-conversion-label { flex: none; color: var(--ph-muted); font-size: 11px; }
 .editor-conversion button { flex: none; min-height: 25px; padding: 3px 8px; border: 1px solid var(--ph-stroke); background: var(--ph-black-6); color: var(--ph-text); }
 .editor-conversion button:hover:not(:disabled) { background: var(--ph-control-hover); }
 .editor-conversion button:disabled { opacity: .5; }
