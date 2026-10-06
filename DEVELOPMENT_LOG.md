@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Multi-select dropdowns and field option editor (2026-10-06)
+
+Added `{{Name|multiselect:separator=...|...}}` for a compact dropdown that
+accepts several choices. The separator is stored in the tag and joins selected
+prompt snippets in option order; existing visible `multi` checkboxes retain
+their comma-space join. Dropdown, radio, checkbox-group, and multi-select
+buttons in the template editor now open a small third-layer dialog to edit
+field names and option labels/text, add or remove options, and reorder them
+with a drag handle or keyboard. The dialog preserves unsaved template edits.
+This is plugin-side only and needs no additional Photon `app.asar` patch.
+
 ### Photon Studio 0.1.43 migration path (2026-10-06)
 
 Added `scripts/migrate-photon-asar.mjs` and the anchored 0.1.42 patch manifest.

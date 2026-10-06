@@ -42,7 +42,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
   const fieldControl=(field:TemplateField):Control=>{
     const id='templateField:'+field.name,value=templateValues[field.name];
     if(field.kind==='check')return {type:'checkbox',id,label:field.name,value:value==='true',disabled:busy,description:field.choices?.[1]?.content?'Unchecked: '+field.choices[1].content:undefined};
-    if(field.kind==='radio'||field.kind==='multi'){
+    if(field.kind==='radio'||field.kind==='multi'||field.kind==='multiselect'){
       const selected=new Set((value??'').split(',').filter(Boolean));
       return {type:'group',id:'templateOptions:'+field.kind+':'+field.name,label:field.name,disabled:busy,children:(field.choices??[]).map((choice,index)=>({type:'checkbox',id:'templateOption:'+field.name+':'+index,label:choice.label,value:field.kind==='radio'?(value??'0')===String(index):selected.has(String(index)),disabled:busy}))};
     }
@@ -157,7 +157,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
         const index=match?Number(match[2]):-1;
         if(!field||index<0||index>=(field.choices?.length??0))return;
         if(field.kind==='radio')templateValues[field.name]=String(index);
-        else if(field.kind==='multi'){
+        else if(field.kind==='multi'||field.kind==='multiselect'){
           const selected=new Set((templateValues[field.name]??'').split(',').filter(Boolean));
           if(event.value)selected.add(String(index));else selected.delete(String(index));
           templateValues[field.name]=[...selected].sort((a,b)=>Number(a)-Number(b)).join(',');

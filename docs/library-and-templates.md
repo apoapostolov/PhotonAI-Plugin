@@ -20,15 +20,22 @@ template text define these controls:
 {{View|select:Front=>front view|Side=>side view}}
 {{Light|radio:Softbox=>soft studio light|Window=>window light}}
 {{Details|multi:Dew=>dew drops|Leaves=>autumn leaves}}
+{{Finishes|multiselect:separator=; :Matte=>matte finish|Gloss=>gloss finish}}
 {{Props|check:Add a few props.}}
 {{Grain|check:Add fine grain.|Keep the finish clean.}}
 ```
 
 `Subject` is a free-text field. `View` is a dropdown; `Light` is a visible
 single-choice radio group. `Details` shows independent checkboxes and inserts
-every selected snippet in the listed order. `Props` inserts its snippet only
-when checked. `Grain` inserts the first snippet when checked and the second
-when unchecked; the unchecked snippet is shown below that control.
+every selected snippet in the listed order, separated by a comma and space.
+`Finishes` opens a compact multi-select dropdown. It inserts every selected
+snippet in the listed order, joined by the separator after `separator=`. In
+the example, selecting both options inserts `matte finish; gloss finish`.
+Use `separator=: ` for a colon and space, `separator=; ` for a semicolon and
+space, or another literal separator. Escape a pipe as `\|` when using it as
+the separator. Both multi-select controls start empty. `Props` inserts its
+snippet only when checked. `Grain` inserts the first snippet when checked and
+the second when unchecked; the unchecked snippet is shown below that control.
 
 The word before `|` is the field label. After the control type, each choice
 can use `Short label=>prompt text`; omit `=>` when the label and inserted text
@@ -50,10 +57,18 @@ fields are converted once when the library loads; ordinary JSON keys stay
 unchanged. Values typed into a field are inserted as written and are not
 parsed for more tags.
 
-The template editor has a second toolbar directly below Markdown with buttons
-that insert editable examples of every field type: text, dropdown, radio,
-multiple checkboxes, one-state checkbox, and two-state checkbox. Both toolbar
-lines use the same button style and scroll horizontally in a narrow dialog.
+The template editor has a second toolbar directly below Markdown. Text and
+checkbox buttons insert editable examples. Dropdown, radio, multiple
+checkboxes, and multi-select dropdown buttons open a smaller dialog above
+the editor. There you can name the field, edit each option's short label and
+prompt text, add or remove options, and drag the handle to reorder them.
+The handle also supports Alt+Up and Alt+Down. The multi-select dropdown adds
+a separator field with a live example of its output. **Insert field** places
+the configured tag at the cursor or replaces selected text. Put the caret
+inside a field of the same type before opening the dialog to edit its options;
+**Update field** replaces that tag. Cancel returns to the editor with its
+unsaved text intact. Both toolbar lines use the same button style and scroll
+horizontally in a narrow dialog.
 New Template opens the same editor. Cancel discards a new template without
 adding an empty card.
 

@@ -35,7 +35,7 @@ Click Generate, Remove, or Fill explicitly to make a billable provider request.
 - **Apply:** creates a named layer and one undo step. Selection edits have an editable mask.
   Source layers remain unchanged. If the source document changed, regenerate before applying.
 - **Library:** save prompts, revisit every recent successful use in History, and expand stacks of similar revisions.
-- **Templates:** apply reusable context with editable text fields, dropdowns, and attached image references. The visible prompt remains separate from template context.
+- **Templates:** apply reusable context with editable text fields, dropdowns, radio groups, checkboxes, multi-select dropdowns, and attached image references. The visible prompt remains separate from template context.
 
 See [Library and Templates](docs/library-and-templates.md) for field syntax, folder and card controls, reference support, and storage limits.
 

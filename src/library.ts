@@ -4,9 +4,9 @@ export interface PromptItem {id:string;folderId:string;text:string;order:number;
 export interface HistoryItem extends PromptItem {templateName?:string;}
 export interface TemplateItem extends PromptItem {name:string;references:ReferenceImage[];transparentBackground?:boolean;}
 export interface LibraryState {folders:Folder[];prompts:PromptItem[];history:HistoryItem[];templates:TemplateItem[];templateSeedVersion:number;templateSyntaxVersion:number;}
-export type TemplateFieldKind='text'|'select'|'radio'|'multi'|'check';
+export type TemplateFieldKind='text'|'select'|'radio'|'multi'|'multiselect'|'check';
 export interface TemplateChoice {label:string;content:string;}
-export interface TemplateField {name:string;options:string[];kind?:TemplateFieldKind;choices?:TemplateChoice[];}
+export interface TemplateField {name:string;options:string[];kind?:TemplateFieldKind;choices?:TemplateChoice[];separator?:string;}
 export interface TemplateTag {start:number;end:number;field:TemplateField;}
 export const ROOT_FOLDER='all';
 export const REFERENCE_BUDGET=650_000;
@@ -41,10 +41,18 @@ function parseTemplateField(source:string):TemplateField|undefined{
   if(pipe>=0&&(firstColon<0||pipe<firstColon)){
     const name=decodeTag(source.slice(0,pipe)).trim(),spec=source.slice(pipe+1),colon=delimiterAt(spec,':');
     const kind=decodeTag(colon<0?spec:spec.slice(0,colon)).trim().toLowerCase() as TemplateFieldKind;
-    if(!validFieldName(name)||!['text','select','radio','multi','check'].includes(kind))return;
+    if(!validFieldName(name)||!['text','select','radio','multi','multiselect','check'].includes(kind))return;
     if(kind==='text')return colon<0?{name,options:[],kind}:undefined;
     if(colon<0)return;
     const parts=splitTag(spec.slice(colon+1),'|');
+    let separator:string|undefined;
+    if(kind==='multiselect'){
+      const setting=parts.shift();
+      if(!setting?.startsWith('separator='))return;
+      separator=decodeTag(setting.slice('separator='.length));
+      if(/[\r\n]/.test(separator))return;
+    }
+    if(!parts.length)return;
     if(kind==='check'&&(parts.length>2||!parts[0].trim()))return;
     const choices=parts.map(part=>{
       const arrow=delimiterAt(part,'=>');
@@ -52,7 +60,7 @@ function parseTemplateField(source:string):TemplateField|undefined{
     });
     if(kind==='check'&&!choices[0].content)return;
     if(kind!=='check'&&choices.some(choice=>!choice.label||!choice.content))return;
-    return {name,options:choices.map(choice=>choice.label),kind,choices};
+    return {name,options:choices.map(choice=>choice.label),kind,choices,separator};
   }
   const colon=firstColon,name=decodeTag(colon<0?source:source.slice(0,colon)).trim();
   if(!validFieldName(name))return;
@@ -112,9 +120,9 @@ export function fillTemplate(text:string,values:Record<string,string>):string{
     else{
       const choices=field.choices??[];
       if(field.kind==='check')replacement=choices[value==='true'||value==='1'?0:1]?.content??'';
-      else if(field.kind==='multi'){
+      else if(field.kind==='multi'||field.kind==='multiselect'){
         const selected=new Set((value??'').split(',').filter(Boolean).map(Number).filter(Number.isInteger));
-        replacement=choices.filter((_choice,index)=>selected.has(index)).map(choice=>choice.content).filter(Boolean).join(', ');
+        replacement=choices.filter((_choice,index)=>selected.has(index)).map(choice=>choice.content).filter(Boolean).join(field.kind==='multiselect'?field.separator??', ':', ');
       }else replacement=choices[choiceIndex(value,choices.length)]?.content??'';
     }
     filled+=replacement;cursor=tag.end;
