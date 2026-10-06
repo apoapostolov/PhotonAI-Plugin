@@ -3,14 +3,15 @@ export interface ReferenceImage {id:string;name:string;dataUrl:string;}
 export interface PromptItem {id:string;folderId:string;text:string;order:number;createdAt:number;updatedAt:number;stackId?:string|null;}
 export interface HistoryItem extends PromptItem {templateName?:string;}
 export interface TemplateItem extends PromptItem {name:string;references:ReferenceImage[];transparentBackground?:boolean;}
-export interface LibraryState {folders:Folder[];prompts:PromptItem[];history:HistoryItem[];templates:TemplateItem[];templateSeedVersion:number;}
+export interface LibraryState {folders:Folder[];prompts:PromptItem[];history:HistoryItem[];templates:TemplateItem[];templateSeedVersion:number;templateSyntaxVersion:number;}
 export type TemplateFieldKind='text'|'select'|'radio'|'multi'|'check';
 export interface TemplateChoice {label:string;content:string;}
 export interface TemplateField {name:string;options:string[];kind?:TemplateFieldKind;choices?:TemplateChoice[];}
+export interface TemplateTag {start:number;end:number;field:TemplateField;}
 export const ROOT_FOLDER='all';
 export const REFERENCE_BUDGET=650_000;
 export const newId=()=>crypto.randomUUID();
-export function emptyLibrary():LibraryState{return {folders:[],prompts:[],history:[],templates:[],templateSeedVersion:0};}
+export function emptyLibrary():LibraryState{return {folders:[],prompts:[],history:[],templates:[],templateSeedVersion:0,templateSyntaxVersion:2};}
 export function cleanLibrary(value:unknown):LibraryState{
   if(!value||typeof value!=='object')return emptyLibrary();const source=value as Partial<LibraryState>;
   const folders=Array.isArray(source.folders)?source.folders.filter(f=>f&&typeof f.id==='string'&&typeof f.name==='string').slice(0,100):[];
@@ -19,36 +20,80 @@ export function cleanLibrary(value:unknown):LibraryState{
   const history=Array.isArray(source.history)?source.history.filter(p=>p&&typeof p.id==='string'&&typeof p.text==='string').slice(-2000).map(p=>({...p,stackId:stackId(p)})):[];
   const templates=Array.isArray(source.templates)?source.templates.filter(t=>t&&typeof t.id==='string'&&typeof t.text==='string'&&typeof t.name==='string').slice(0,510).map(t=>({...t,stackId:stackId(t),transparentBackground:t.transparentBackground===true,references:Array.isArray(t.references)?t.references.filter(r=>r&&typeof r.dataUrl==='string'&&/^data:image\/(png|jpeg|webp);base64,/.test(r.dataUrl)).slice(0,8):[]})):[];
   const templateSeedVersion=typeof source.templateSeedVersion==='number'&&Number.isInteger(source.templateSeedVersion)&&source.templateSeedVersion>=0?source.templateSeedVersion:0;
-  return {folders,prompts,history,templates,templateSeedVersion};
+  const templateSyntaxVersion=typeof source.templateSyntaxVersion==='number'&&Number.isInteger(source.templateSyntaxVersion)&&source.templateSyntaxVersion>=0?source.templateSyntaxVersion:1;
+  return {folders,prompts,history,templates,templateSeedVersion,templateSyntaxVersion};
 }
+function delimiterAt(source:string,delimiter:string):number{
+  for(let i=0;i<=source.length-delimiter.length;i++){
+    if(source[i]==='\\'&&i+1<source.length){i++;continue;}
+    if(source.startsWith(delimiter,i))return i;
+  }
+  return -1;
+}
+function splitTag(source:string,delimiter:string):string[]{
+  const parts:string[]=[];let rest=source,index=delimiterAt(rest,delimiter);
+  while(index>=0){parts.push(rest.slice(0,index));rest=rest.slice(index+delimiter.length);index=delimiterAt(rest,delimiter);}
+  parts.push(rest);return parts;
+}
+function decodeTag(source:string):string{return source.replace(/\\(\\|\||:|=>|\{|\})/g,'$1');}
 function parseTemplateField(source:string):TemplateField|undefined{
-  const typed=/^([^:|]+)\|(text|select|radio|multi|check)(?::([\s\S]*))?$/i.exec(source);
-  if(typed){
-    const name=typed[1].trim(),kind=typed[2].toLowerCase() as TemplateFieldKind;
-    if(!name)return;
-    if(kind==='text')return typed[3]===undefined?{name,options:[],kind}:undefined;
-    const parts=(typed[3]??'').split('|');
+  const pipe=delimiterAt(source,'|'),firstColon=delimiterAt(source,':');
+  if(pipe>=0&&(firstColon<0||pipe<firstColon)){
+    const name=decodeTag(source.slice(0,pipe)).trim(),spec=source.slice(pipe+1),colon=delimiterAt(spec,':');
+    const kind=decodeTag(colon<0?spec:spec.slice(0,colon)).trim().toLowerCase() as TemplateFieldKind;
+    if(!validFieldName(name)||!['text','select','radio','multi','check'].includes(kind))return;
+    if(kind==='text')return colon<0?{name,options:[],kind}:undefined;
+    if(colon<0)return;
+    const parts=splitTag(spec.slice(colon+1),'|');
     if(kind==='check'&&(parts.length>2||!parts[0].trim()))return;
     const choices=parts.map(part=>{
-      const arrow=part.indexOf('=>');
-      return arrow<0?{label:part.trim(),content:part.trim()}:{label:part.slice(0,arrow).trim(),content:part.slice(arrow+2).trim()};
+      const arrow=delimiterAt(part,'=>');
+      return arrow<0?{label:decodeTag(part).trim(),content:decodeTag(part).trim()}:{label:decodeTag(part.slice(0,arrow)).trim(),content:decodeTag(part.slice(arrow+2)).trim()};
     });
     if(kind==='check'&&!choices[0].content)return;
     if(kind!=='check'&&choices.some(choice=>!choice.label||!choice.content))return;
     return {name,options:choices.map(choice=>choice.label),kind,choices};
   }
-  const legacy=/^([^:|]+)(?::([^{}]+))?$/.exec(source);
-  if(!legacy)return;
-  const name=legacy[1].trim();if(!name)return;
-  return {name,options:legacy[2]?legacy[2].split('|').map(x=>x.trim()).filter(Boolean):[]};
+  const colon=firstColon,name=decodeTag(colon<0?source:source.slice(0,colon)).trim();
+  if(!validFieldName(name))return;
+  return {name,options:colon<0?[]:splitTag(source.slice(colon+1),'|').map(x=>decodeTag(x).trim()).filter(Boolean)};
+}
+function validFieldName(name:string):boolean{return /^[\p{L}\p{N}][^\r\n{}"]*$/u.test(name);}
+// A backslash protects the next character; nested openers leave the tag literal.
+function tagEnd(text:string,start:number):number{
+  for(let i=start+2;i<text.length-1;i++){
+    if(text[i]==='\\'&&i+1<text.length){i++;continue;}
+    if(text.startsWith('{{',i))return -1;
+    if(text.startsWith('}}',i))return i+2;
+  }
+  return -1;
+}
+export function templateTags(text:string):TemplateTag[]{
+  const tags:TemplateTag[]=[];
+  for(let i=0;i<text.length-1;i++){
+    if(!text.startsWith('{{',i))continue;
+    let slashes=0;for(let j=i-1;j>=0&&text[j]==='\\';j--)slashes++;
+    if(slashes%2)continue;
+    const end=tagEnd(text,i);if(end<0)continue;
+    const field=parseTemplateField(text.slice(i+2,end-2));
+    if(field)tags.push({start:i,end,field});
+    i=end-1;
+  }
+  return tags;
 }
 export function templateFields(text:string):TemplateField[]{
   const fields=new Map<string,TemplateField>();
-  for(const match of text.matchAll(/\{([^{}]+)\}/g)){
-    const field=parseTemplateField(match[1]);
+  for(const {field} of templateTags(text)){
     if(field&&!fields.has(field.name))fields.set(field.name,field);
   }
   return [...fields.values()];
+}
+export function migrateTemplateSyntax(library:LibraryState):boolean{
+  if(library.templateSyntaxVersion>=2)return false;
+  // Preserve saved field behavior while leaving quoted JSON object keys alone.
+  for(const template of library.templates)template.text=template.text.replace(/(?<!\{)\{([^{}]+)\}(?!\})/g,(whole,source:string)=>parseTemplateField(source)?`{{${source}}}`:whole);
+  library.templateSyntaxVersion=2;
+  return true;
 }
 function choiceIndex(value:string|undefined,count:number):number{
   const index=Number(value);
@@ -56,20 +101,25 @@ function choiceIndex(value:string|undefined,count:number):number{
 }
 export function fillTemplate(text:string,values:Record<string,string>):string{
   const fields=new Map(templateFields(text).map(field=>[field.name,field]));
-  return text.replace(/\{([^{}]+)\}/g,(whole,tag:string)=>{
-    const parsed=parseTemplateField(tag);
-    if(!parsed)return whole;
-    const field=fields.get(parsed.name)??parsed,value=values[field.name]?.trim();
-    if(!field.kind)return value||field.options[0]||'';
-    if(field.kind==='text')return value||'';
-    const choices=field.choices??[];
-    if(field.kind==='check')return choices[value==='true'||value==='1'?0:1]?.content??'';
-    if(field.kind==='multi'){
-      const selected=new Set((value??'').split(',').filter(Boolean).map(Number).filter(Number.isInteger));
-      return choices.filter((_choice,index)=>selected.has(index)).map(choice=>choice.content).filter(Boolean).join(', ');
+  let filled='',cursor=0;
+  const literal=(segment:string)=>segment.replace(/(\\+)\{\{/g,(whole,slashes:string)=>slashes.length%2?slashes.slice(1)+'{{':whole);
+  for(const tag of templateTags(text)){
+    filled+=literal(text.slice(cursor,tag.start));
+    const field=fields.get(tag.field.name)??tag.field,value=values[field.name]?.trim();
+    let replacement='';
+    if(!field.kind)replacement=value||field.options[0]||'';
+    else if(field.kind==='text')replacement=value||'';
+    else{
+      const choices=field.choices??[];
+      if(field.kind==='check')replacement=choices[value==='true'||value==='1'?0:1]?.content??'';
+      else if(field.kind==='multi'){
+        const selected=new Set((value??'').split(',').filter(Boolean).map(Number).filter(Number.isInteger));
+        replacement=choices.filter((_choice,index)=>selected.has(index)).map(choice=>choice.content).filter(Boolean).join(', ');
+      }else replacement=choices[choiceIndex(value,choices.length)]?.content??'';
     }
-    return choices[choiceIndex(value,choices.length)]?.content??'';
-  });
+    filled+=replacement;cursor=tag.end;
+  }
+  return filled+literal(text.slice(cursor));
 }
 const words=(s:string)=>s.toLowerCase().match(/[\p{L}\p{N}]+/gu)??[];
 export function similarPrompt(a:string,b:string):boolean{

@@ -10,7 +10,7 @@ import {MODEL_CACHE_MS,cachedBundledModels,listsModels,loadProviderModels,modelC
 import {applyOutputOptions} from './providers/output-options';
 import {signInDialog,updateSignInDialog} from './signin';
 import {loadAccountQuota} from './providers/quota';
-import {cleanLibrary,fillTemplate,newId,recordPrompt,referenceBytes,REFERENCE_BUDGET,ROOT_FOLDER,templateFields,type LibraryState,type ReferenceImage,type TemplateItem,type TemplateField} from './library';
+import {cleanLibrary,fillTemplate,migrateTemplateSyntax,newId,recordPrompt,referenceBytes,REFERENCE_BUDGET,ROOT_FOLDER,templateFields,type LibraryState,type ReferenceImage,type TemplateItem,type TemplateField} from './library';
 import {seedPremadeTemplates} from './premade-templates';
 import type {CustomPanel} from './custom-ui';
 interface Settings {provider:ProviderId;models:Partial<Record<ProviderId,string>>;customBase:string;customModel:string;customEdit:boolean;customSizes:string;customQualities:string;customMaxEdge:number;modelCache:Partial<Record<ProviderId,ModelCacheEntry>>;library:LibraryState;}
@@ -19,6 +19,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
   let settings:Settings={provider:'openai',models:{},customBase:'https://api.openai.com/v1',customModel:'',customEdit:true,customSizes:'1024x1024,1536x1024,1024x1536',customQualities:'',customMaxEdge:2048,modelCache:{},library:cleanLibrary(undefined),...await api.settings.get<Partial<Settings>>()};
   settings.library=cleanLibrary(settings.library);
   const seededTemplates=seedPremadeTemplates(settings.library);
+  const migratedTemplateSyntax=migrateTemplateSyntax(settings.library);
   settings.modelCache=sanitizeModelCache(settings.modelCache);
   if(!providers.some(p=>p.id===settings.provider))settings.provider='openai';
   let mode:Mode='generate',prompt='',promptSaveError='',size='1024x1024',quality='auto',busy=false,error='',credential=false,persistent=true,result:Result|undefined,insert=false,hasSelection=false,activeTemplateId='',templateValues:Record<string,string>={},manualReferences:ReferenceImage[]=[];
@@ -46,7 +47,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
     if(field.options.length)return {type:'select',id,label:field.name,value:value??field.options[0],disabled:busy,options:field.options.map(option=>({value:option,label:option}))};
     return {type:'input',id,label:field.name,value:value??'',disabled:busy};
   };
-  if(seededTemplates)await save();
+  if(seededTemplates||migratedTemplateSyntax)await save();
   const refreshCredential=async()=>{const info=await api.credentials.status(keyId());credential=info.configured;try{credential=credential&&info.origin===endpoint();}catch{credential=false;}persistent=info.persistent;};
   const listContext=(id:ProviderId)=>({api,credential:id,job:{id:'models',signal:listAbort.signal,progress:async()=>{}}});
   const refreshModels=async(id:ProviderId,force:boolean)=>{

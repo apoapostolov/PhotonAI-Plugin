@@ -16,12 +16,12 @@ card previews, so they stand apart from ordinary template text. Tags in the
 template text define these controls:
 
 ```text
-{Subject}
-{View|select:Front=>front view|Side=>side view}
-{Light|radio:Softbox=>soft studio light|Window=>window light}
-{Details|multi:Dew=>dew drops|Leaves=>autumn leaves}
-{Props|check:Add a few props.}
-{Grain|check:Add fine grain.|Keep the finish clean.}
+{{Subject}}
+{{View|select:Front=>front view|Side=>side view}}
+{{Light|radio:Softbox=>soft studio light|Window=>window light}}
+{{Details|multi:Dew=>dew drops|Leaves=>autumn leaves}}
+{{Props|check:Add a few props.}}
+{{Grain|check:Add fine grain.|Keep the finish clean.}}
 ```
 
 `Subject` is a free-text field. `View` is a dropdown; `Light` is a visible
@@ -37,7 +37,18 @@ checkboxes start empty; a single checkbox starts unchecked. An omitted
 unchecked snippet inserts nothing, while an explicit second snippet inserts
 that text (including the literal word `none` if written). Repeat a field
 name to reuse its value; the first definition of that name supplies its
-control. Existing `{style:oil|watercolor|ink}` dropdowns still work.
+control. The older `{{style:oil|watercolor|ink}}` dropdown form still works.
+
+Single braces are ordinary text, so JSON such as `{"size":"1024x1024"}`
+does not create a field. Only valid `{{...}}` tags become controls. Write
+`\{{` for literal double braces. Inside a tag, escape a literal pipe as
+`\|`, an arrow as `\=>`, and a closing brace as `\}`. Use `\\` for a literal
+backslash. For example, `{{Label|select:A=>red\|blue|B=>green}}` makes a
+dropdown whose first choice inserts `red|blue`. An unfinished or invalid
+double-brace tag stays as text. Existing saved templates with single-brace
+fields are converted once when the library loads; ordinary JSON keys stay
+unchanged. Values typed into a field are inserted as written and are not
+parsed for more tags.
 
 Ten editable premade cards are installed into All templates once per library. Their workflows and research sources are in [Premade templates](premade-templates.md). The Transparent PNG option on a template uses OpenAI's alpha output settings and requires Generate mode with an OpenAI GPT Image model.
 

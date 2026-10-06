@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {cleanLibrary,fillTemplate,promptStacks,recordPrompt,similarPrompt,templateFields} from '../src/library';
 
 test('template fields provide dropdown choices and free text without changing the visible prompt',()=>{
-  const context='A {style:oil|watercolor} portrait of {subject} in {style:oil|watercolor}';
+  const context='A {{style:oil|watercolor}} portrait of {{subject}} in {{style:oil|watercolor}}';
   assert.deepEqual(templateFields(context),[{name:'style',options:['oil','watercolor']},{name:'subject',options:[]}]);
   assert.equal(fillTemplate(context,{style:'watercolor',subject:'a fox'}),'A watercolor portrait of a fox in watercolor');
 });

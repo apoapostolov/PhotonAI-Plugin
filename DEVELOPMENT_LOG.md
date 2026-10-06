@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Double-brace template fields (2026-10-06)
+
+Template controls now use `{{...}}`; ordinary single braces stay in the
+provider prompt, including JSON objects. Saved single-brace template fields
+are converted once on load. The premade cards and Template Fields guide show
+the new form. Tag parsing supports escaped pipes, arrows, braces, and
+backslashes in option text. A literal `{{` can be written as `\{{`.
+Unfinished or invalid tags remain plain text. No Photon host patch is needed.
+
 ### Template authoring help (2026-10-06)
 
 The Templates content toolbar now places Template Fields to the right of New

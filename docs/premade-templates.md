@@ -3,8 +3,9 @@
 The Template library starts with ten editable cards. Existing libraries
 receive them once. The version 2 migration refreshes the text of untouched
 starter cards so their new controls appear, while preserving edited or
-deleted cards, attached references, folders, and order. The cards live in
-All templates so no extra folder appears in the Prompt Library.
+deleted cards, attached references, folders, and order. A separate syntax
+migration changes saved single-brace fields to double braces once. The cards
+live in All templates so no extra folder appears in the Prompt Library.
 
 ## Selection
 

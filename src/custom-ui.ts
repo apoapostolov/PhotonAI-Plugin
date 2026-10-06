@@ -1,5 +1,5 @@
 import type {PhotonApi,PanelModel,Control,UiEvent} from '@photon/plugin-sdk';
-import {ROOT_FOLDER,newId,promptStacks,referenceBytes,REFERENCE_BUDGET,templateFields,type LibraryState,type PromptItem,type TemplateItem,type ReferenceImage} from './library';
+import {ROOT_FOLDER,newId,promptStacks,referenceBytes,REFERENCE_BUDGET,templateTags,type LibraryState,type PromptItem,type TemplateItem,type ReferenceImage} from './library';
 import penSvg from '../svg/pen.svg';
 import trashSvg from '../svg/trash.svg';
 import wandSvg from '../svg/wand-magic-sparkles.svg';
@@ -9,25 +9,25 @@ const trashIcon='<span class="glyph-icon" aria-hidden="true">&#x1F5D1;&#xFE0E;</
 const cardIcon=(svg:string)=>`<span class="card-action-icon" aria-hidden="true">${svg}</span>`;
 function highlightedTemplate(text:string):string{
   let html='',cursor=0;
-  for(const match of text.matchAll(/\{[^{}]+\}/g)){
-    const index=match.index??0,tag=match[0];
-    html+=esc(text.slice(cursor,index));
-    html+=templateFields(tag).length?`<span class="template-tag">${esc(tag)}</span>`:esc(tag);
-    cursor=index+tag.length;
+  for(const tag of templateTags(text)){
+    html+=esc(text.slice(cursor,tag.start));
+    html+=`<span class="template-tag">${esc(text.slice(tag.start,tag.end))}</span>`;
+    cursor=tag.end;
   }
   return html+esc(text.slice(cursor));
 }
-const templateFieldHelp=(open:boolean)=>`<section id="template-fields-help" class="template-fields-help" role="region" aria-label="Template field guide" ${open?'':'hidden'}>
-  <p>Write tags in a template. When you use it, each tag becomes a control below the prompt. The selected text is added to the hidden instructions sent with your prompt.</p>
+const templateFieldHelp=(open:boolean)=>String.raw`<section id="template-fields-help" class="template-fields-help" role="region" aria-label="Template field guide" ${open?'':'hidden'}>
+  <p>Write double-brace tags in a template. When you use it, each tag becomes a control below the prompt. The selected text is added to the hidden instructions sent with your prompt.</p>
   <dl>
-    <div><dt>Text field</dt><dd><code>{Subject}</code><span>Type any value.</span></dd></div>
-    <div><dt>Dropdown</dt><dd><code>{View|select:Front=>front view|Side=>side view}</code><span>Choose one from a menu.</span></dd></div>
-    <div><dt>Radio</dt><dd><code>{Light|radio:Softbox=>soft studio light|Window=>window light}</code><span>Choose one visible option.</span></dd></div>
-    <div><dt>Multiple checkboxes</dt><dd><code>{Details|multi:Dew=>dew drops|Leaves=>autumn leaves}</code><span>Choose any number. Their text is combined in the order shown.</span></dd></div>
-    <div><dt>Checkbox</dt><dd><code>{Props|check:Add a few props.}</code><span>Unchecked adds nothing.</span></dd></div>
-    <div><dt>Checkbox with two states</dt><dd><code>{Grain|check:Add fine grain.|Keep the finish clean.}</code><span>The second text is used when unchecked.</span></dd></div>
+    <div><dt>Text field</dt><dd><code>{{Subject}}</code><span>Type any value.</span></dd></div>
+    <div><dt>Dropdown</dt><dd><code>{{View|select:Front=>front view|Side=>side view}}</code><span>Choose one from a menu.</span></dd></div>
+    <div><dt>Radio</dt><dd><code>{{Light|radio:Softbox=>soft studio light|Window=>window light}}</code><span>Choose one visible option.</span></dd></div>
+    <div><dt>Multiple checkboxes</dt><dd><code>{{Details|multi:Dew=>dew drops|Leaves=>autumn leaves}}</code><span>Choose any number. Their text is combined in the order shown.</span></dd></div>
+    <div><dt>Checkbox</dt><dd><code>{{Props|check:Add a few props.}}</code><span>Unchecked adds nothing.</span></dd></div>
+    <div><dt>Checkbox with two states</dt><dd><code>{{Grain|check:Add fine grain.|Keep the finish clean.}}</code><span>The second text is used when unchecked.</span></dd></div>
   </dl>
-  <p>Use <code>Short label=&gt;prompt text</code> to keep a choice short while sending more precise text. Dropdowns and radio groups start on their first option; checkboxes start off. Reuse a field name to reuse its value. Tags like <code>{Style:oil|watercolor}</code> still work.</p>
+  <p>Single braces, such as <code>{"size":"1024x1024"}</code>, stay as written. Use <code>Short label=&gt;prompt text</code> for concise choices. Dropdowns and radio groups start on their first option; checkboxes start off. Reuse a field name to reuse its value. The older choice form <code>{{Style:oil|watercolor}}</code> still works.</p>
+  <p>Inside a tag, write <code>\|</code> for a pipe, <code>\=&gt;</code> for an arrow, <code>\}</code> for a closing brace, and <code>\\</code> for a backslash. Write <code>\{{</code> for literal double braces in template text.</p>
 </section>`;
 const root=document.getElementById('app')!;
 const overlay=document.getElementById('overlay')!;
