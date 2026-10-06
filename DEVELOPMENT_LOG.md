@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Prompt-save error color (2026-10-06)
+
+The empty-prompt save message now uses Photon's normal text color while its
+left marker stays red. This follows the active skin and needs no Photon
+`app.asar` patch.
+
 ### Main panel reference picker fix (2026-10-06)
 
 The add-reference square opened a file picker but ignored the selected file.

@@ -30,7 +30,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   background: transparent; color: var(--ph-muted);
 }
 .prompt-save:hover:not(:disabled) { background: var(--ph-control-hover); color: var(--ph-text); }
-.prompt-save-error { margin: 0; padding-left: 6px; border-left: 2px solid var(--ph-danger); color: var(--ph-danger); line-height: 1.4; }
+.prompt-save-error { margin: 0; padding-left: 6px; border-left: 2px solid var(--ph-danger); color: var(--ph-text); line-height: 1.4; }
 .field select option { background: var(--ph-black-4); }
 .control-text { margin: 0; color: var(--ph-muted); line-height: 1.4; }
 .control-text.danger { color: var(--ph-text); border-left: 2px solid var(--ph-danger); padding-left: 6px; }
