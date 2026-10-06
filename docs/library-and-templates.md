@@ -55,7 +55,7 @@ type: text, dropdown, radio, multiple checkboxes, one-state checkbox, and
 two-state checkbox. New Template opens the same editor. Cancel discards a new
 template without adding an empty card.
 
-Ten editable premade cards are installed into All templates once per library.
+Thirty editable premade cards are installed into All templates once per library.
 Their workflows and research sources are in [Premade templates](premade-templates.md).
 The Transparent image option has a help glyph. In Generate mode, OpenAI GPT
 Image and Codex GPT Image requests ask for transparent PNG output. The Grok

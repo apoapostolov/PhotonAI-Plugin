@@ -1,7 +1,8 @@
 import {ROOT_FOLDER,type LibraryState,type TemplateItem} from './library';
 
 // Versioned once-per-library so a deleted or edited starter card stays deleted or edited.
-const SEED_VERSION=2;
+const SEED_VERSION=3;
+const ORIGINAL_TEMPLATE_COUNT=10;
 const premade:Pick<TemplateItem,'id'|'name'|'text'|'transparentBackground'>[]=[
   {
     id:'premade:transparent-cutout',name:'Transparent cutout',transparentBackground:true,
@@ -42,19 +43,100 @@ const premade:Pick<TemplateItem,'id'|'name'|'text'|'transparentBackground'>[]=[
   {
     id:'premade:surface-pattern',name:'Seamless surface pattern',
     text:'Generate a repeatable surface design made of {{Motif}}. Treatment: {{Treatment|select:Drawn=>hand-drawn|Photo=>photographic texture|Geometric=>geometric|Watercolor=>watercolor}}. Density: {{Density|radio:Sparse=>sparse|Balanced=>balanced|Dense=>dense}}. Palette: {{Colors}}. Keep scale and detail consistent. Edges must align for a seamless tile in both directions, without a central vignette, frame, lighting gradient, lettering, or a visible seam.'
+  },
+  {
+    id:'premade:book-cover',name:'Book cover artwork',
+    text:'Create front-cover artwork for {{Book theme}}. Genre: {{Genre|select:Literary=>literary fiction|Mystery=>mystery|Fantasy=>fantasy|Nonfiction=>nonfiction|Romance=>romance}}. Central motif: {{Motif}}. Mood: {{Mood|radio:Quiet=>quiet and reflective|Tense=>tense and atmospheric|Bold=>bold and graphic}}. Keep one memorable focal image and reserve clean space for a title at the top and an author name near the bottom. Do not generate words, a spine, barcode, or publisher marks.\n{{Finish|multi:Paper=>Suggest tactile paper texture|Foil=>Leave a small motif suitable for later foil treatment|Grain=>Add restrained print grain}}'
+  },
+  {
+    id:'premade:album-cover',name:'Album cover artwork',
+    text:'Create square album-cover artwork for {{Music or artist concept}}. Main visual: {{Central motif}}. Musical direction: {{Genre|select:Electronic=>electronic|Jazz=>jazz|Indie=>indie|Classical=>classical|Hip-hop=>hip-hop}}. Treatment: {{Treatment|radio:Photographic=>photographic|Collage=>layered collage|Abstract=>abstract graphic}}. Make the image recognizable at thumbnail size. Leave a clear area for artist and release typography to be added as editable layers. No invented lettering or logos.\n{{Effects|multi:Light leaks=>Add subtle light leaks|Grain=>Add analog grain|Geometry=>Introduce restrained geometric accents}}'
+  },
+  {
+    id:'premade:magazine-cover',name:'Magazine cover portrait',
+    text:'Create an editorial cover portrait of {{Subject}} for {{Editorial theme}}. Lighting: {{Lighting|radio:Soft=>soft natural light|Studio=>sculpted studio light|Dramatic=>dramatic directional light}}. Palette: {{Palette|select:Neutral=>restrained neutrals|Warm=>warm tones|Cool=>cool tones|Vivid=>vivid color}}. Keep the face and key expression unobstructed, with room above for a masthead and quiet side areas for cover lines. Preserve identity when a reference portrait is supplied. Do not render any cover text.\n{{Retouching|check:Keep natural skin texture and restrained editorial retouching.}}'
+  },
+  {
+    id:'premade:event-flyer',name:'Event flyer visual',
+    text:'Make the visual layer for a {{Event type}} flyer with the theme {{Theme}}. Feature {{Visual motif}}. Energy: {{Energy|radio:Calm=>calm and refined|Festive=>festive and colorful|Intense=>high-energy and dramatic}}. Give the artwork a clear visual hierarchy and reserve distinct open areas for the event name, date, venue, and booking details to be typeset later. No generated words or fake logos.\n{{Accents|multi:Lighting=>Add expressive light effects|Texture=>Use subtle print texture|Shapes=>Add restrained graphic shapes}}'
+  },
+  {
+    id:'premade:greeting-card',name:'Greeting card illustration',
+    text:'Illustrate the front of a greeting card for {{Occasion}}. Main motif: {{Motif}}. Style: {{Style|select:Watercolor=>watercolor|Cut paper=>cut-paper collage|Botanical=>botanical illustration|Photo=>photographic still life}}. Palette: {{Palette}}. Make the composition warm and personal, with a clear central area for a greeting to be added later as editable text. Avoid printed words and brand marks.\n{{Frame|check:Add a restrained decorative border.|Keep the edges clean without a border.}}'
+  },
+  {
+    id:'premade:video-thumbnail',name:'Video thumbnail visual',
+    text:'Create a video-thumbnail image for {{Video topic}} with one immediate visual hook: {{Visual hook}}. Tone: {{Tone|radio:Curious=>curious|Urgent=>urgent|Playful=>playful|Expert=>authoritative}}. Layout: {{Copy area|select:Left=>leave open space on the left|Right=>leave open space on the right|Top=>leave open space across the top}}. Use strong subject separation, readable contrast, and a simple silhouette that works at small size. No generated headline or interface elements.\n{{Accents|multi:Glow=>Add a restrained glow at the focal point|Arrow space=>Leave room for a later annotation arrow|Depth=>Add subtle foreground depth}}'
+  },
+  {
+    id:'premade:display-banner',name:'Display ad visual',
+    text:'Create the image layer for a digital display ad promoting {{Product or service}} to {{Audience}}. Format: {{Format|radio:Wide=>wide banner|Square=>square placement|Tall=>tall placement}}. Place the focal subject {{Subject placement|select:Left=>on the left|Right=>on the right|Center=>near the center}} while keeping a distinct low-detail area for offer copy and a call-to-action button to be added later. Communicate {{Benefit}} visually. No generated words, price tags, buttons, or logos.\n{{Texture|check:Add subtle depth or material texture behind the subject.}}'
+  },
+  {
+    id:'premade:email-header',name:'Email campaign header',
+    text:'Create a wide, shallow email header image for {{Brand or campaign}} about {{Campaign theme}}. Feature {{Subject}}. Season: {{Season|select:Evergreen=>season-neutral|Spring=>spring|Summer=>summer|Autumn=>autumn|Winter=>winter}}. Mood: {{Mood|radio:Warm=>warm and welcoming|Clean=>clean and restrained|Bold=>bold and energetic}}. Keep the focal subject readable in a short horizontal crop and reserve uncomplicated space for an editable headline and logo. No baked-in text or buttons.'
+  },
+  {
+    id:'premade:packaging-mockup',name:'Packaging presentation',
+    text:'Create a realistic presentation scene for a {{Package type}} made of {{Material|select:Paperboard=>paperboard|Glass=>glass|Metal=>metal|Pouch=>flexible pouch}} in {{Setting}}. View: {{View|radio:Three-quarter=>three-quarter view|Front=>front view|Top-down=>top-down view}}. Show believable folds, reflections, scale, and a contact shadow. Keep the package front clear for artwork placement; if a package reference is supplied, preserve its design and lettering instead of inventing new branding.\n{{Props|check:Add a few relevant props outside the package silhouette.}}'
+  },
+  {
+    id:'premade:food-hero',name:'Food menu photography',
+    text:'Create an appetizing editorial food photograph of {{Dish}} from {{Cuisine}}. Camera: {{Camera|radio:Three-quarter=>three-quarter table view|Top-down=>top-down flat lay|Close-up=>tight detail view}}. Light: {{Light|select:Window=>soft window light|Studio=>controlled studio light|Evening=>warm evening light}}. Preserve realistic ingredients, serving proportions, textures, and plate geometry. Keep a clean area for menu copy; no text, labels, or extra dishes.\n{{Garnish|check:Add a restrained garnish appropriate to the dish.}}'
+  },
+  {
+    id:'premade:fashion-editorial',name:'Fashion editorial scene',
+    text:'Create a fashion editorial image featuring {{Garment or look}} in {{Setting}}. Mood: {{Mood|radio:Minimal=>minimal and composed|Cinematic=>cinematic|Street=>street style|Luxury=>luxury editorial}}. Light: {{Light|select:Daylight=>natural daylight|Studio=>studio light|Night=>night lighting}}. Keep fabric construction, drape, and body anatomy believable. If a garment reference is attached, preserve its cut, color, and details. Leave room for later editorial typography and do not invent brand marks.\n{{Atmosphere|multi:Wind=>Add gentle fabric movement|Haze=>Add restrained atmosphere|Reflection=>Use a controlled reflection}}'
+  },
+  {
+    id:'premade:interior-staging',name:'Interior staging concept',
+    text:'Reimagine a {{Room type}} in {{Design style|select:Modern=>modern style|Scandinavian=>Scandinavian style|Industrial=>industrial style|Traditional=>traditional style}} with a {{Palette}} palette. Keep walls, doors, windows, camera position, room scale, and daylight direction consistent with a supplied room image. Add furniture that fits the circulation space and produces believable shadows. No people, labels, or impossible structural changes.\n{{Furnishings|multi:Seating=>Include appropriate seating|Lighting=>Add practical lamps|Plants=>Add restrained plants|Art=>Place artwork on a suitable wall}}'
+  },
+  {
+    id:'premade:travel-campaign',name:'Travel campaign image',
+    text:'Create a travel campaign image for {{Destination}} centered on {{Signature feature}}. Season: {{Season|radio:Spring=>spring|Summer=>summer|Autumn=>autumn|Winter=>winter}}. Treatment: {{Treatment|select:Documentary=>documentary photography|Editorial=>polished editorial photography|Illustrated=>travel illustration}}. Convey a credible sense of place with coherent geography, weather, and lighting. Leave a clean area for a destination headline. Do not invent recognizable landmarks, signs, or travel-company logos.\n{{Human scale|check:Add a small figure for scale without making them the focal point.}}'
+  },
+  {
+    id:'premade:apparel-print',name:'Apparel print graphic',
+    text:'Design a standalone graphic motif for apparel featuring {{Motif}}. Style: {{Style|select:Screen print=>bold screen-print shapes|Illustrated=>detailed illustration|Geometric=>geometric graphic|Vintage=>vintage graphic}}. Ink plan: {{Ink plan|radio:One color=>one strong ink color|Two colors=>two separated ink colors|Full color=>a controlled full-color palette}}. Use a strong silhouette and clear separations that read on fabric. Show only the flat artwork on a uniform plain background for later masking and print preparation; no shirt mockup, words, or logos.\n{{Wear|check:Add restrained worn-print texture.|Keep the shapes clean and solid.}}'
+  },
+  {
+    id:'premade:sticker-sheet',name:'Sticker sheet artwork',
+    text:'Create a coordinated sticker sheet about {{Theme}} with {{Count|radio:Three=>three|Five=>five|Seven=>seven}} distinct motifs. Style: {{Style|select:Flat=>flat color|Hand-drawn=>hand-drawn|Kawaii=>playful character art|Photo cutout=>photo cutout}}. Arrange each motif separately with generous space between silhouettes on a uniform plain background for easy masking. Keep outlines consistent and avoid tiny details, words, and logos.\n{{Border|check:Give each sticker a clean outer keyline.|Leave the sticker edges unframed.}}'
+  },
+  {
+    id:'premade:brand-moodboard',name:'Brand moodboard',
+    text:'Build a visual moodboard for {{Brand idea}} aimed at {{Audience}}. Values: {{Brand values}}. Palette: {{Palette}}. Mood: {{Mood|radio:Calm=>calm and understated|Playful=>playful and expressive|Premium=>premium and restrained}}. Combine color swatches, material close-ups, photographic cues, and a few simple graphic shapes in an orderly board with consistent spacing. No words, fake logos, interface panels, or printed labels.\n{{Materials|multi:Paper=>Include paper texture|Fabric=>Include fabric texture|Metal=>Include a metal accent|Natural=>Include natural material cues}}'
+  },
+  {
+    id:'premade:sky-replacement',name:'Sky replacement',
+    text:'Fill the selected sky area with a {{Sky|select:Clear=>clear sky|Cloudy=>layered clouds|Sunset=>sunset sky|Storm=>dramatic storm sky|Night=>night sky}} at {{Time|radio:Dawn=>dawn|Day=>daytime|Dusk=>dusk|Night=>night}}. Keep the foreground, horizon, trees, buildings, and fine edge detail unchanged. Match light direction, color temperature, atmospheric depth, and any visible water or glass reflections to the new sky. No new landmarks or text.\n{{Cloud detail|check:Add subtle cloud variation without distracting from the main subject.}}'
+  },
+  {
+    id:'premade:canvas-extension',name:'Extend image canvas',
+    text:'Continue the existing image into the selected empty canvas on the {{Direction|select:Left=>left|Right=>right|Top=>top|Bottom=>bottom}}. Carry through {{Environment cues}} with matching perspective, scale, lighting, texture, grain, depth of field, and color. Join the original edge without a seam or repeated object. Preserve the existing subject and do not introduce a new focal subject.\n{{Copy space|check:Keep the extended area quiet enough for later copy placement.}}'
+  },
+  {
+    id:'premade:photo-colorization',name:'Archival photo colorization',
+    text:'Colorize the selected black-and-white photograph from {{Era or location}} with {{Palette reference}} as the color guide. Treatment: {{Treatment|radio:Natural=>natural restrained color|Warm print=>warm aged-print color|Cool print=>cool aged-print color}}. Preserve faces, clothing construction, objects, grain, contrast, and the original composition. Use historically plausible colors where evidence is available; avoid modern signs or invented details.\n{{Repair|check:Repair minor visible scratches and stains while retaining authentic texture.|Leave age marks and film texture intact.}}'
+  },
+  {
+    id:'premade:double-exposure',name:'Double exposure composite',
+    text:'Create a double-exposure visual of {{Primary subject}} blended with {{Secondary scene}}. Blend: {{Blend|select:Silhouette=>keep the secondary scene inside the subject silhouette|Overlay=>use a gentle full-frame overlay|Split=>use a controlled split composition}}. Tone: {{Tone|radio:Monochrome=>monochrome|Warm=>warm duotone|Cool=>cool duotone}}. Keep the primary subject recognizable with clear facial or object contours and deliberate negative space. If references are supplied, respect their composition. No lettering or logos.\n{{Accents|multi:Grain=>Add fine film grain|Light leak=>Add a subtle light leak|Vignette=>Add a restrained vignette}}'
   }
 ];
 
 export function seedPremadeTemplates(library:LibraryState):boolean{
   if(library.templateSeedVersion>=SEED_VERSION)return false;
   const now=Date.now();
+  let nextOrder=library.templates.reduce((max,item)=>Number.isFinite(item.order)?Math.max(max,item.order):max,-1)+1;
   for(const [index,item] of premade.entries()){
     const existing=library.templates.find(template=>template.id===item.id);
     if(existing){
       if(library.templateSeedVersion===1&&existing.createdAt===existing.updatedAt&&existing.name===item.name)existing.text=item.text;
       continue;
     }
-    if(library.templateSeedVersion<1)library.templates.push({...item,folderId:ROOT_FOLDER,references:[],order:index,createdAt:now,updatedAt:now});
+    if(library.templateSeedVersion<1||library.templateSeedVersion<3&&index>=ORIGINAL_TEMPLATE_COUNT)library.templates.push({...item,folderId:ROOT_FOLDER,references:[],order:library.templateSeedVersion<1?index:nextOrder++,createdAt:now,updatedAt:now});
   }
   library.templateSeedVersion=SEED_VERSION;
   return true;

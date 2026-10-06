@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Thirty premade templates (2026-10-06)
+
+The Template library now includes 30 starters. Version 3 seeds twenty new
+cards for print and editorial artwork, digital marketing, commercial
+imagery, brand assets, and image edits. Existing edits, deletions, folders,
+references, and order are preserved; new cards append after the current
+order. `docs/premade-templates.md` records the full set, intended mode,
+controls, and Adobe research basis. The change is plugin-side and needs no
+additional Photon `app.asar` patch.
+
 ### Live Library and Templates search (2026-10-06)
 
 Both collection content toolbars now have a search field. Typing filters
