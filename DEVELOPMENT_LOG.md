@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Visual template fields (2026-10-06)
+
+Template cards and the template editor now display valid `{{...}}` controls as
+inline pills with a type icon and field name. The editor still saves the same
+syntax for compatibility. A click selects a pill for copy, cut, deletion, or
+dragging to another position; double-click or Enter opens a third-level field
+dialog. All seven toolbar field forms use that dialog, including text and both
+checkbox forms. Pasted valid field syntax becomes a pill. This is plugin-side
+UI work and requires no additional `app.asar` patch.
+
 ### Codex template conversion controls (2026-10-06)
 
 Renamed the editor action to **To text** and placed the selected model and

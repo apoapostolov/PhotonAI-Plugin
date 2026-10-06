@@ -57,18 +57,21 @@ fields are converted once when the library loads; ordinary JSON keys stay
 unchanged. Values typed into a field are inserted as written and are not
 parsed for more tags.
 
-The template editor has a second toolbar directly below Markdown. Text and
-checkbox buttons insert editable examples. Dropdown, radio, multiple
-checkboxes, and multi-select dropdown buttons open a smaller dialog above
-the editor. There you can name the field, edit each option's short label and
-prompt text, add or remove options, and drag the handle to reorder them.
-The handle also supports Alt+Up and Alt+Down. The multi-select dropdown adds
-a separator field with a live example of its output. **Insert field** places
-the configured tag at the cursor or replaces selected text. Put the caret
-inside a field of the same type before opening the dialog to edit its options;
-**Update field** replaces that tag. Cancel returns to the editor with its
-unsaved text intact. Both toolbar lines use the same button style and scroll
-horizontally in a narrow dialog.
+Template cards and the editor show valid fields as inline pills with a control
+icon and field name. The saved text still uses the `{{...}}` syntax above.
+Click a pill in the editor to select it. Copy or cut it with the usual keyboard
+shortcuts, press Delete or Backspace to remove it, or drag it to move it within
+the instructions. Pasting a copied pill restores it as a field. Double-click a
+pill, or select it and press Enter, to open its field dialog. The dialog lets
+you change the label and the settings for that type. Text fields, checkboxes,
+two-state checkboxes, dropdowns, radio groups, multiple checkboxes, and
+multi-select dropdowns all have dialogs. For choice controls, edit each
+option's label and prompt text, add or remove options, and drag the handle to
+reorder them. The handle also supports Alt+Up and Alt+Down. The multi-select
+dropdown has a separator field with a live output example. The field toolbar
+opens the same dialogs to insert a new pill at the cursor. **Update field**
+replaces the selected pill; Cancel keeps the unsaved editor text. Both toolbar
+lines use the same button style and scroll horizontally in a narrow dialog.
 
 **To JSON** and **To text** use the selected model to rewrite the text
 in the template editor. They are available when that model can return text.

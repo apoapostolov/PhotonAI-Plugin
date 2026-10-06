@@ -158,7 +158,12 @@ small { color: var(--ph-muted); }
 .drag-handle { cursor: grab; }
 .card-date { font-size: 11px; }
 .card p { max-height: 150px; margin: 4px 0 8px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; }
-.template-tag { padding: 0 1px; border-radius: 2px; background: var(--ph-control-active); color: var(--ph-accent); }
+.template-pill { display: inline-flex; align-items: center; max-width: 100%; gap: 4px; margin: 0 2px; padding: 1px 5px; border: 1px solid var(--ph-stroke-strong); border-radius: 9px; background: var(--ph-control-active); color: var(--ph-text); font: inherit; line-height: 1.25; vertical-align: baseline; white-space: nowrap; user-select: all; }
+.template-pill-icon { flex: none; color: var(--ph-accent); font-size: 11px; font-weight: 700; }
+.template-pill-name { overflow: hidden; text-overflow: ellipsis; }
+.template-rich-editor .template-pill { cursor: grab; user-select: none; }
+.template-rich-editor .template-pill:hover { background: var(--ph-control-hover); }
+.template-rich-editor .template-pill.selected, .template-rich-editor .template-pill:focus { border-color: var(--ph-accent); outline: 1px solid var(--ph-accent); outline-offset: 1px; }
 .card textarea { min-height: 90px; resize: vertical; }
 .card input { margin-bottom: 5px; }
 .card-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; margin-top: 6px; }
@@ -201,6 +206,8 @@ small { color: var(--ph-muted); }
 .editor-tools button:hover { background: var(--ph-control-hover); }
 .editor-text-label { color: var(--ph-muted); }
 .item-editor textarea { min-height: 150px; flex: 1; resize: none; line-height: 1.5; }
+.template-rich-editor { min-height: 150px; flex: 1; padding: 7px; border: 1px solid var(--ph-stroke); background: var(--ph-black-4); color: var(--ph-text); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; overflow: auto; outline: none; }
+.template-rich-editor:focus { border-color: var(--ph-stroke-strong); }
 .editor-conversion { display: flex; align-items: center; justify-content: flex-end; gap: 5px; min-width: 0; margin-left: auto; white-space: nowrap; }
 .editor-conversion span { overflow: hidden; color: var(--ph-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .editor-conversion button { flex: none; min-height: 25px; padding: 3px 8px; border: 1px solid var(--ph-stroke); background: var(--ph-black-6); color: var(--ph-text); }
