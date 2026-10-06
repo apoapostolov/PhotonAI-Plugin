@@ -93,7 +93,7 @@ export async function createCustomPanel(base:PhotonApi):Promise<CustomPanel>{
   const emit=(id:string,value?:string|number|boolean)=>{void handler?.({id,value,panel:'ai'});};
   root.addEventListener('input',event=>{const el=event.target as HTMLInputElement|HTMLTextAreaElement;if(el.dataset.control==='prompt')emit('prompt',el.value);});
   root.addEventListener('change',event=>{const el=event.target as HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement;if(!el.dataset.control||el.dataset.control==='prompt')return;emit(el.dataset.control,el.type==='checkbox'?(el as HTMLInputElement).checked:el.type==='number'?Number(el.value):el.value);});
-  root.addEventListener('change',async event=>{const el=event.target as HTMLInputElement;if(!el.dataset.manualReference||!el.files?.[0])return;try{emit('manualReference',JSON.stringify(await smallImage(el.files[0])));}catch(error){emit('panelError',error instanceof Error?error.message:String(error));}});
+  root.addEventListener('change',async event=>{const el=event.target as HTMLInputElement;if(!el.hasAttribute('data-manual-reference')||!el.files?.[0])return;try{emit('manualReference',JSON.stringify(await smallImage(el.files[0])));}catch(error){emit('panelError',error instanceof Error?error.message:String(error));}});
   root.addEventListener('click',event=>{const el=(event.target as Element).closest<HTMLButtonElement>('button[data-control]');if(el)emit(el.dataset.control!,el.dataset.value);});
   const api:PhotonApi={...base,ui:{...base.ui,render:async(_panel:string,model:PanelModel)=>{
     const active=document.activeElement as HTMLInputElement|HTMLTextAreaElement|null;

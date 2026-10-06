@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Main panel reference picker fix (2026-10-06)
+
+The add-reference square opened a file picker but ignored the selected file.
+Its change handler checked the empty value of a Boolean data attribute, so
+it returned before resizing or attaching the image. The handler now checks
+for the attribute's presence. This is plugin-side only and needs no Photon
+`app.asar` patch.
+
 ### Editor toolbar and folder icon polish (2026-10-06)
 
 The template editor presents Markdown actions and field insertion as two
