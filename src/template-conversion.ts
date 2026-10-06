@@ -6,7 +6,7 @@ import {templateTags} from './library';
 export type ConversionDirection='json'|'narrative';
 
 export function canConvertTemplate(provider:ProviderId,modelId:string):boolean{
-  if(/^gpt-image-|^chatgpt-image/i.test(modelId))return false;
+  if(/(?:^|\/)(?:gpt-image|chatgpt-image|dall-e|grok-imagine-image)(?:[-.]|$)/i.test(modelId))return false;
   return provider==='gemini'||provider==='custom'||provider==='openai';
 }
 
