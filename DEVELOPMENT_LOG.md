@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+### Separate Library and Templates modal (2026-10-06)
+
+The previous `ui.customDialog` host patch promoted the entire custom panel
+view over the editor. Library and Templates therefore appeared inside a
+full-screen panel background. The replacement controller patch creates a
+separate modal Electron window, temporarily reparents the same plugin view,
+and restores its dock bounds when closed. The plugin hides its panel content,
+renders the collection before asking the host to show the window, and clears
+the modal state if the window closes through the operating system. The nested
+edit dialogs stay inside that window. `scripts/photon-modal-dialog-source.mjs`
+contains the exact additional ASAR edits; the 0.1.43 migration applies them
+after the earlier reviewed patch set. The patched 0.1.42 archive was staged,
+its controller syntax checked, and installed after Photon Studio fully closed.
+The previous archive is preserved at
+`resources/photon-ai-backups/2026-10-06-modal-window/app.asar`. The installed
+controller was checked for the new modal path. Live window behavior remains to
+be qualified after restarting Photon and reloading the development folder.
+
 ### Visual template fields (2026-10-06)
 
 Template cards and the template editor now display valid `{{...}}` controls as

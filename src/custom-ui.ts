@@ -86,7 +86,7 @@ export async function createCustomPanel(base:PhotonApi):Promise<CustomPanel>{
   const theme=await bridge().request('sdk.ui.theme',{});
   if(theme.error)throw new Error(theme.error);
   applyPhotonTheme(theme.value);
-  base.events.subscribe(event=>{if(event.type==='theme')applyPhotonTheme(event.theme);});
+  base.events.subscribe(event=>{if(event.type==='theme')applyPhotonTheme(event.theme);else if(String(event.type)==='customDialogClosed'){overlay.hidden=true;overlay.replaceChildren();root.inert=false;document.body.classList.remove('collection-modal');}});
   let handler:((event:UiEvent)=>void|Promise<void>)|undefined;
   const emit=(id:string,value?:string|number|boolean)=>{void handler?.({id,value,panel:'ai'});};
   root.addEventListener('input',event=>{const el=event.target as HTMLInputElement|HTMLTextAreaElement;if(el.dataset.control==='prompt')emit('prompt',el.value);});
@@ -100,14 +100,19 @@ export async function createCustomPanel(base:PhotonApi):Promise<CustomPanel>{
     if(id){const replacement=Array.from(root.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('[data-control]')).find(el=>el.dataset.control===id);replacement?.focus();if(position!==null&&replacement&&'setSelectionRange'in replacement)replacement.setSelectionRange(position,position);}
   },onEvent:callback=>{handler=callback;return {dispose(){if(handler===callback)handler=undefined;}};}}};
   const closeCollection=async()=>{
-    overlay.hidden=true;overlay.replaceChildren();root.inert=false;
     const reply=await editorDialog(false);
     if(reply?.error)throw new Error(reply.error);
+    overlay.hidden=true;overlay.replaceChildren();root.inert=false;document.body.classList.remove('collection-modal');
   };
   return {api,async openCollection(kind,actions){
-    const reply=await editorDialog(true);
-    if(reply?.error)throw new Error(reply.error);
-    showCollection(kind,actions,closeCollection);
+    document.body.classList.add('collection-modal');
+    try{
+      const reply=await editorDialog(true);
+      if(reply?.error)throw new Error(reply.error);
+      showCollection(kind,actions,closeCollection);
+      const ready=await bridge().request('sdk.ui.customDialog',{ready:true});
+      if(ready?.error)throw new Error(ready.error);
+    }catch(error){overlay.hidden=true;overlay.replaceChildren();root.inert=false;document.body.classList.remove('collection-modal');await editorDialog(false).catch(()=>{});throw error;}
   },closeCollection};
 }
 

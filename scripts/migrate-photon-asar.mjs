@@ -8,6 +8,7 @@ import {basename,dirname,isAbsolute,join,resolve,sep} from 'node:path';
 import {Readable} from 'node:stream';
 import {pipeline} from 'node:stream/promises';
 import {fileURLToPath} from 'node:url';
+import {upgradeCustomDialogSource} from './photon-modal-dialog-source.mjs';
 
 const args=process.argv.slice(2);
 function option(name){const index=args.indexOf(name);return index<0?undefined:args[index+1];}
@@ -98,9 +99,10 @@ for(const [key,item] of files){
   if(old.includes('PHOTON_AI_PLUGIN_CONFIG')||old.includes('PHOTON_AI_CUSTOM_DIALOG'))throw Error(`${item.path} already contains a local Photon AI patch. Use an unpatched ${expected} ASAR.`);
   if(key==='controller'&&['method === "config.get"','method === "ui.customDialog"','method === "credentials.store"'].some(needle=>old.includes(needle)))
     throw Error(`${item.path} may already implement a required host capability. Review the new Photon API before applying the local patch.`);
-  const patched=applyEdits(old,manifest.files[key].edits,item.path);
+  let patched=applyEdits(old,manifest.files[key].edits,item.path);
   if(createHash('sha256').update(oldBytes).digest('hex')===manifest.files[key].oldSha256&&createHash('sha256').update(patched).digest('hex')!==manifest.files[key].newSha256)
     throw Error(`${item.path}: baseline patch did not reproduce the reviewed result. No archive was installed.`);
+  if(key==='controller')patched=upgradeCustomDialogSource(patched);
   if(key!=='nativeCss'){
     try{execFileSync(process.execPath,['--check','--input-type=module'],{input:patched,stdio:['pipe','pipe','pipe']});}
     catch{throw Error(`${item.path}: patched JavaScript has invalid syntax. No archive was installed.`);}

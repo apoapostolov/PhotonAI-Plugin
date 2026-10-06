@@ -156,18 +156,40 @@ Photon Studio 0.1.42 still needs all of them. Leave the sign-in control ids and 
 
 ## Library and Templates host work
 
-The 2026-10-06 library interaction changes (inline prompt error, card reference controls, quota placement, and persistent drag grouping) are plugin-side only. They add no new `app.asar` edit. The editor-wide dialog still depends on the `sdk.ui.customDialog` controller patch below, alongside the earlier sign-in patches in this note. The complete upstream PR includes `scripts/patch-photon-host.mjs` and all of these host requirements from the development work in PR #1.
+The earlier `sdk.ui.customDialog({open})` patch enlarged the plugin's
+`WebContentsView` to the entire editor. That made Library and Templates appear
+to sit inside a full-screen panel. The replacement must create a separate
+Electron modal `BrowserWindow` owned by the editor window. Its content is the
+same plugin-owned `WebContentsView`, temporarily reparented from the dock. The
+panel's normal bounds and visibility are restored when the modal closes.
 
-The prompt and template editor now opens a second modal layer inside the
-already promoted plugin view. It does not call `sdk.ui.customDialog` a second
-time. Markdown and template-field insertion are plugin-side. This adds no
-`app.asar` patch beyond the existing full-window view promotion.
+Patch `resources/app.asar` → `dist-electron/electron/plugins/controller.js` in
+`PhotonRuntime.request()`. Accept `sdk.ui.customDialog({open: true})` only from
+a declared custom Photon panel. Create a frameless, resizable child window with
+`parent` set to the editor and `modal: true`, then move the plugin view into it.
+Keep it hidden until `sdk.ui.customDialog({ready: true})` arrives, after the
+plugin has rendered the dialog. The plugin hides its panel content while the
+modal is open. `sdk.ui.customDialog({open: false})` closes the window and
+restores the view to its dock owner. Closing the window by the OS also restores
+the view and sends `customDialogClosed` so the plugin clears its modal state.
+The host must preserve the plugin's broker, theme, session, and web-navigation
+restrictions. The nested Edit and field dialogs remain inside the same modal
+window; they do not open more host windows.
 
-Library and Templates need an editor-wide modal. The custom panel cannot draw outside its `WebContentsView`. Photon already implements full-window view promotion for UXP through `panel.dialog`; Photon plugins cannot call that route. The plugin now requests `sdk.ui.customDialog({open: boolean})`, and the host must implement it in `resources/app.asar` → `dist-electron/electron/plugins/controller.js` (`PhotonRuntime.request()`). No hashed renderer asset needs changing.
+The same controller file also needs changes in plugin stop, panel bounds,
+visibility, and detach handling. Stop must close an open modal before destroying
+the view. Bounds updates must size the view to the modal window rather than
+stretching it over the editor; panel hide and detach events must not hide an
+active modal. Detached panel owner changes must leave the modal view attached
+until it closes. No hashed renderer asset changes for this dialog behavior.
 
-The host method must accept only a declared custom Photon panel and a Boolean `open`. On open, set `instance.dialogOpen`, move that plugin-owned view to the top of its editor owner's `contentView`, size it to the owner's full content area, and focus it. On close, clear `dialogOpen`, restore `instance.bounds`, and focus the editor. The existing bounds handler already maintains full-window bounds while `dialogOpen` is true. The plugin draws the backdrop and classic folder-sidebar/card-content dialog within this full-window view; the dialog is no longer confined to the dock. The view retains its current plugin identity, broker, theme, and `window.open` restriction.
-
-`scripts/patch-photon-host.mjs` applies this controller change and the plugin-config change below to a copy of an existing archive. Run it with input and distinct output paths. It accepts an archive already carrying the dialog marker, skips that part, and adds the missing config capability. It refuses unknown controller versions and archives already carrying the config marker. Its output must replace `app.asar` only after **all** Photon Studio processes are closed; preserve the existing archive as a backup and reopen Photon. The installed 0.1.42 archive had prior device sign-in edits, so the patch uses that archive rather than the original `app.asar.bak`. A package loaded on a host without these methods reports a missing SDK capability. A real editor visual check is still required after installation.
+`scripts/photon-modal-dialog-source.mjs` contains these exact controller edits.
+`scripts/patch-photon-host.mjs` stages them in a copy of an existing archive;
+it also adds the plugin-config bridge if absent. Use the installed archive
+containing the earlier sign-in changes as input, not stock `app.asar.bak`.
+Close every Photon Studio process before replacing `app.asar`, preserve the
+old archive, and reopen Photon. The public Photon SDK still needs a supported
+custom-dialog API so plugins need no private bridge or local ASAR edit.
 
 ## Requested Photon feature expansion: per-plugin configuration files
 
@@ -186,14 +208,14 @@ Use the plugin's existing `i.plugin.key` through `this.persistent`; never accept
 
 Two limits remain for a production-quality collection:
 
-1. Add a public `ui.customDialog(open)` method to `@photon/plugin-sdk` when shipping the host change. The current plugin uses the bridge directly because the vendored SDK has no such method.
+1. Add a public modal-dialog method to `@photon/plugin-sdk` when shipping the host change. The current plugin uses the private `ui.customDialog` bridge because the vendored SDK has no such method.
 2. The new Library config file still has a 1 MB limit. To keep full-resolution reference files, add plugin-scoped binary storage in the same controller and SDK. A safe shape is `storage.write(id, bytes)`, `storage.read(id)`, and `storage.delete(id)` with path-free, plugin-scoped IDs, a total per-plugin quota, atomic writes, and cleanup on uninstall. Keep Library metadata in its separate config file, migrate image bytes into binary storage, and stop pruning history once it has its own bounded or paged store. The current plugin stores resized references and bounded history in `config-library.json`; it does not call a binary API that stock Photon lacks.
 
 For the product release, rebuild `app.asar` from Photon source instead of string-patching a hashed renderer bundle. The local migration below is a guarded bridge for users of the patched development installation. Quit all Photon Studio processes before archive replacement and relaunch to load the result.
 
 ## Moving a local installation to Photon Studio 0.1.43
 
-`scripts/migrate-photon-asar.mjs` carries the reviewed 0.1.42 local changes in the controller, native panel bundle, and panel stylesheet to an **unpatched** 0.1.43 archive. `scripts/photon-0.1.42-patches.json` contains the small, anchored edits between stock 0.1.42 and the local build, including `sdk.config.get/set`. The script locates hashed renderer files by their stable names, checks the target package version, requires a unique match for every edit, and checks the staged JavaScript and archive contents. If an anchor has changed in 0.1.43, it stops before installing and reports the exact file and hunk for a manual port. It never substitutes the full 0.1.42 archive for 0.1.43.
+`scripts/migrate-photon-asar.mjs` carries the reviewed 0.1.42 local changes in the controller, native panel bundle, and panel stylesheet to an **unpatched** 0.1.43 archive, then applies the separate modal-window upgrade. `scripts/photon-0.1.42-patches.json` preserves the anchored delta from stock 0.1.42; `scripts/photon-modal-dialog-source.mjs` replaces its old full-editor dialog path. The script checks the target package version, unique anchors, JavaScript syntax, and staged archive contents. If an anchor changes in 0.1.43, it stops before installing and reports the affected file or hunk for a manual port. It never substitutes the full 0.1.42 archive for 0.1.43.
 
 After installing 0.1.43 and fully closing Photon Studio, run from this repository in PowerShell:
 
@@ -203,4 +225,4 @@ node scripts/migrate-photon-asar.mjs --target "$env:LOCALAPPDATA\Programs\Photon
 
 The script stages and verifies `app.asar.photon-ai-staged-<timestamp>`, copies the current plugin data directory to a timestamped backup, moves the original 0.1.43 archive into that backup directory, and installs the patched archive. Omit `--install` to stop after staging and inspect the output; that staging run leaves its archive on disk. The script refuses installation while Photon Studio is running. Use `--data-dir` if Photon's plugin data is somewhere other than `%APPDATA%\Photon Studio\plugins\data`; use `--backup-dir` for a different backup location outside this repository. Plugin settings and credential files stay in their existing private data directory. Reopen Photon Studio and reload the development plugin folder after installation.
 
-The 0.1.42 config patch was installed locally on 2026-10-06. Its prior archive is `resources/app.asar.before-config-2026-10-06`, and the plugin data backup is `%APPDATA%\Photon Studio\plugins\data.before-config-2026-10-06`. The 0.1.43 migration script cannot be qualified against that release until its archive is available.
+The 0.1.42 config patch was installed locally on 2026-10-06. Its prior archive is `resources/app.asar.before-config-2026-10-06`, and the plugin data backup is `%APPDATA%\Photon Studio\plugins\data.before-config-2026-10-06`. The modal-window upgrade was installed later; its previous archive is `resources/photon-ai-backups/2026-10-06-modal-window/app.asar`. The installed controller passed a syntax and marker check. The 0.1.43 migration script cannot be qualified against that release until its archive is available, and the separate modal still needs a live Photon UI check.

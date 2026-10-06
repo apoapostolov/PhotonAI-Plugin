@@ -1,10 +1,11 @@
-// Build a Photon Studio ASAR with editor-wide dialogs and plugin config files.
+// Build a Photon Studio ASAR with separate modal dialogs and plugin config files.
 // Usage: node scripts/patch-photon-host.mjs <input app.asar> <output app.asar>
 import {createHash} from 'node:crypto';
 import {createReadStream,createWriteStream} from 'node:fs';
 import {open,stat} from 'node:fs/promises';
 import {Readable} from 'node:stream';
 import {pipeline} from 'node:stream/promises';
+import {upgradeCustomDialogSource} from './photon-modal-dialog-source.mjs';
 
 const [input,output]=process.argv.slice(2);
 if(!input||!output||input===output)throw Error('Pass different input and output ASAR paths.');
@@ -48,9 +49,9 @@ const addition=`\n    // PHOTON_AI_CUSTOM_DIALOG: promote this plugin-owned cust
       return null;
     }`;
 if(!source.includes('PHOTON_AI_CUSTOM_DIALOG'))source=source.replace(marker,marker+addition);
+source=upgradeCustomDialogSource(source);
 const settingsMarker='    if (method === "settings.get") return this.json(i, "settings.json");';
 if(!source.includes(settingsMarker))throw Error('Unknown Photon settings implementation; patch it from source instead.');
-if(source.includes('PHOTON_AI_PLUGIN_CONFIG'))throw Error('This ASAR already has the plugin config patch.');
 const configAddition=`    // PHOTON_AI_PLUGIN_CONFIG: bounded JSON files under this plugin's private data directory.
     if (method === "config.get" || method === "config.set") {
       if (!["library", "templates", "history", "references"].includes(p.id)) throw new Error("Invalid plugin config id.");
@@ -60,7 +61,8 @@ const configAddition=`    // PHOTON_AI_PLUGIN_CONFIG: bounded JSON files under t
       return this.exclusive(i, () => this.save(i, name, p.value));
     }
 `;
-source=source.replace(settingsMarker,configAddition+settingsMarker);
+if(!source.includes('PHOTON_AI_PLUGIN_CONFIG'))source=source.replace(settingsMarker,configAddition+settingsMarker);
+if(source===original.toString('utf8'))throw Error('This ASAR already has the current host patch.');
 const patched=Buffer.from(source,'utf8');
 const size=(await stat(input)).size;
 entry.offset=String(size-base);

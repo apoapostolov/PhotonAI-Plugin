@@ -6,6 +6,7 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
+body.collection-modal #app { display: none; }
 button, input, textarea, select { font: inherit; }
 .glyph-icon { font-family: "Segoe UI Symbol", var(--ph-font), sans-serif; font-size: 17px; font-weight: 400; line-height: 1; }
 button { cursor: pointer; }
@@ -91,6 +92,8 @@ small { color: var(--ph-muted); }
 
 #overlay[hidden] { display: none; }
 #overlay { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; }
+body.collection-modal .modal-backdrop { display: none; }
+body.collection-modal .collection-dialog { width: 100vw; height: 100vh; }
 .modal-backdrop { position: absolute; inset: 0; background: var(--ph-glass-plate); }
 .collection-dialog {
   position: relative; display: flex; flex-direction: column;
