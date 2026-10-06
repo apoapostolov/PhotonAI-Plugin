@@ -161,27 +161,34 @@ The earlier `sdk.ui.customDialog({open})` patch enlarged the plugin's
 to sit inside a full-screen panel. The replacement must create a separate
 Electron modal `BrowserWindow` owned by the editor window. Its content is the
 same plugin-owned `WebContentsView`, temporarily reparented from the dock. The
+host captures the panel before moving that view and shows the capture in a
+temporary dock view. The panel controls remain visible behind the modal; the
+modal naturally prevents interaction with them until it closes. The live
 panel's normal bounds and visibility are restored when the modal closes.
 
 Patch `resources/app.asar` → `dist-electron/electron/plugins/controller.js` in
 `PhotonRuntime.request()`. Accept `sdk.ui.customDialog({open: true})` only from
 a declared custom Photon panel. Create a frameless, resizable child window with
 `parent` set to the editor and `modal: true`, then move the plugin view into it.
-Keep it hidden until `sdk.ui.customDialog({ready: true})` arrives, after the
-plugin has rendered the dialog. The plugin hides its panel content while the
-modal is open. `sdk.ui.customDialog({open: false})` closes the window and
-restores the view to its dock owner. Closing the window by the OS also restores
-the view and sends `customDialogClosed` so the plugin clears its modal state.
+Before moving the view, capture its panel pixels, create a temporary
+`WebContentsView` with that image, and place it at the panel bounds. Keep the
+modal hidden until `sdk.ui.customDialog({ready: true})` arrives, after the
+plugin has rendered the dialog. The plugin hides its panel content only in the
+moved live view. `sdk.ui.customDialog({open: false})` closes the window,
+removes the temporary dock view, and restores the live view to its owner.
+Closing the window by the OS does the same and sends `customDialogClosed` so
+the plugin clears its modal state.
 The host must preserve the plugin's broker, theme, session, and web-navigation
 restrictions. The nested Edit and field dialogs remain inside the same modal
 window; they do not open more host windows.
 
 The same controller file also needs changes in plugin stop, panel bounds,
-visibility, and detach handling. Stop must close an open modal before destroying
-the view. Bounds updates must size the view to the modal window rather than
-stretching it over the editor; panel hide and detach events must not hide an
-active modal. Detached panel owner changes must leave the modal view attached
-until it closes. No hashed renderer asset changes for this dialog behavior.
+visibility, and detach handling. Stop must close an open modal and remove the
+temporary dock view before destroying the live view. Bounds updates must size
+the live view to the modal and keep the temporary dock view at the panel bounds;
+panel hide and detach events must not hide an active modal. Detached panel
+owner changes must move the temporary dock view while leaving the live view in
+the modal until it closes. No hashed renderer asset changes for this behavior.
 
 `scripts/photon-modal-dialog-source.mjs` contains these exact controller edits.
 `scripts/patch-photon-host.mjs` stages them in a copy of an existing archive;
@@ -225,4 +232,4 @@ node scripts/migrate-photon-asar.mjs --target "$env:LOCALAPPDATA\Programs\Photon
 
 The script stages and verifies `app.asar.photon-ai-staged-<timestamp>`, copies the current plugin data directory to a timestamped backup, moves the original 0.1.43 archive into that backup directory, and installs the patched archive. Omit `--install` to stop after staging and inspect the output; that staging run leaves its archive on disk. The script refuses installation while Photon Studio is running. Use `--data-dir` if Photon's plugin data is somewhere other than `%APPDATA%\Photon Studio\plugins\data`; use `--backup-dir` for a different backup location outside this repository. Plugin settings and credential files stay in their existing private data directory. Reopen Photon Studio and reload the development plugin folder after installation.
 
-The 0.1.42 config patch was installed locally on 2026-10-06. Its prior archive is `resources/app.asar.before-config-2026-10-06`, and the plugin data backup is `%APPDATA%\Photon Studio\plugins\data.before-config-2026-10-06`. The modal-window upgrade was installed later; its previous archive is `resources/photon-ai-backups/2026-10-06-modal-window/app.asar`. The installed controller passed a syntax and marker check. The 0.1.43 migration script cannot be qualified against that release until its archive is available, and the separate modal still needs a live Photon UI check.
+The 0.1.42 config patch was installed locally on 2026-10-06. Its prior archive is `resources/app.asar.before-config-2026-10-06`, and the plugin data backup is `%APPDATA%\Photon Studio\plugins\data.before-config-2026-10-06`. The separate-modal upgrade was installed later, with the prior archive at `resources/photon-ai-backups/2026-10-06-modal-window/app.asar`. The first live check found that the docked controls disappeared while the live view was in the modal. The follow-up dock-preview patch was installed on 2026-10-07; its prior archive is `resources/photon-ai-backups/2026-10-07-panel-preview/app.asar`. The installed controller passed syntax and marker checks. The 0.1.43 migration still needs qualification against that release, and the dock preview needs a live Photon UI check.

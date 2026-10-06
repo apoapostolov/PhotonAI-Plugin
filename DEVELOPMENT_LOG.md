@@ -20,6 +20,16 @@ The previous archive is preserved at
 controller was checked for the new modal path. Live window behavior remains to
 be qualified after restarting Photon and reloading the development folder.
 
+The first live check confirmed Library and Templates open outside the panel,
+but the docked panel controls disappeared while its view was moved. The host
+patch now captures the panel before the move and keeps that image in a
+temporary dock view. The original panel view still supplies the interactive
+modal and returns to the dock on close. This follow-up archive was installed
+after Photon Studio fully closed, with the prior archive backed up at
+`resources/photon-ai-backups/2026-10-07-panel-preview/app.asar`. The installed
+controller passed syntax and marker checks. The dock preview and restore path
+still need a live check after reloading the development folder.
+
 ### Visual template fields (2026-10-06)
 
 Template cards and the template editor now display valid `{{...}}` controls as

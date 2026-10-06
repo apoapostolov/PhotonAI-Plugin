@@ -105,10 +105,10 @@ export async function createCustomPanel(base:PhotonApi):Promise<CustomPanel>{
     overlay.hidden=true;overlay.replaceChildren();root.inert=false;document.body.classList.remove('collection-modal');
   };
   return {api,async openCollection(kind,actions){
-    document.body.classList.add('collection-modal');
     try{
       const reply=await editorDialog(true);
       if(reply?.error)throw new Error(reply.error);
+      document.body.classList.add('collection-modal');
       showCollection(kind,actions,closeCollection);
       const ready=await bridge().request('sdk.ui.customDialog',{ready:true});
       if(ready?.error)throw new Error(ready.error);

@@ -17,7 +17,7 @@ const oldDialog=`    // PHOTON_AI_CUSTOM_DIALOG: promote this plugin-owned custo
       return null;
     }`;
 
-const newDialog=`    // PHOTON_AI_CUSTOM_DIALOG_WINDOW: keep the plugin view in a separate native modal.
+const newDialog=`    // PHOTON_AI_CUSTOM_DIALOG_PANEL_PREVIEW: keep the dock visible under a native modal.
     if (method === "ui.customDialog") {
       const entry = i.plugin.entrypoints.find((e) => e.id === i.entrypoint);
       if (entry?.ui !== "custom" || !(typeof p.open === "boolean" || p.ready === true)) throw new Error("Invalid custom dialog request.");
@@ -31,15 +31,30 @@ const newDialog=`    // PHOTON_AI_CUSTOM_DIALOG_WINDOW: keep the plugin view in 
         if (i.dialogWindow && !i.dialogWindow.isDestroyed()) return null;
         const parent = import_electron2.BrowserWindow.fromWebContents(i.editor) ?? i.owner;
         if (!parent || parent.isDestroyed()) throw new Error("Editor window is closed.");
+        const panelImage = await i.view.webContents.capturePage();
+        if (panelImage.isEmpty()) throw new Error("Could not preserve the panel while opening the dialog.");
+        const preview = new import_electron2.WebContentsView({ webPreferences: {
+          sandbox: true, contextIsolation: true, nodeIntegration: false, webSecurity: true
+        } });
+        preview.setBackgroundColor("#00000000");
+        const previewHtml = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;overflow:hidden"><img alt="" style="display:block;width:100vw;height:100vh" src="' + panelImage.toDataURL() + '"></body></html>';
+        try { await preview.webContents.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(previewHtml)); }
+        catch (error) { preview.webContents.close(); throw error; }
+        if (i.stopped || i.owner.isDestroyed() || parent.isDestroyed()) { preview.webContents.close(); throw new Error("Panel closed while opening the dialog."); }
         const [availableWidth, availableHeight] = parent.getContentSize();
-        const dialogWindow = new import_electron2.BrowserWindow({
-          parent, modal: true, show: false, frame: false, resizable: true,
-          minimizable: false, maximizable: false, title: i.plugin.name,
-          width: Math.max(280, Math.min(928, availableWidth - 24)),
-          height: Math.max(260, Math.min(708, availableHeight - 24)),
-          backgroundColor: "#00000000"
-        });
+        let dialogWindow;
+        try {
+          dialogWindow = new import_electron2.BrowserWindow({
+            parent, modal: true, show: false, frame: false, resizable: true,
+            minimizable: false, maximizable: false, title: i.plugin.name,
+            width: Math.max(280, Math.min(928, availableWidth - 24)),
+            height: Math.max(260, Math.min(708, availableHeight - 24)),
+            backgroundColor: "#00000000"
+          });
+        } catch (error) { preview.webContents.close(); throw error; }
         i.dialogPanelVisible = i.view.getVisible();
+        i.dialogPlaceholder = preview;
+        i.dialogPlaceholderOwner = i.owner;
         i.dialogWindow = dialogWindow;
         i.dialogOpen = true;
         dialogWindow.on("resize", () => {
@@ -50,6 +65,12 @@ const newDialog=`    // PHOTON_AI_CUSTOM_DIALOG_WINDOW: keep the plugin view in 
         dialogWindow.on("close", () => {
           if (i.dialogWindow !== dialogWindow) return;
           if (!i.view.webContents.isDestroyed()) dialogWindow.contentView.removeChildView(i.view);
+          if (i.dialogPlaceholder) {
+            if (i.dialogPlaceholderOwner && !i.dialogPlaceholderOwner.isDestroyed()) i.dialogPlaceholderOwner.contentView.removeChildView(i.dialogPlaceholder);
+            if (!i.dialogPlaceholder.webContents.isDestroyed()) i.dialogPlaceholder.webContents.close();
+            i.dialogPlaceholder = void 0;
+            i.dialogPlaceholderOwner = void 0;
+          }
           i.dialogWindow = void 0;
           i.dialogOpen = false;
           if (!i.owner.isDestroyed() && !i.view.webContents.isDestroyed()) {
@@ -62,6 +83,9 @@ const newDialog=`    // PHOTON_AI_CUSTOM_DIALOG_WINDOW: keep the plugin view in 
             }
           }
         });
+        i.owner.contentView.addChildView(preview);
+        if (i.bounds) preview.setBounds(i.bounds);
+        preview.setVisible(true);
         if (!i.owner.isDestroyed()) i.owner.contentView.removeChildView(i.view);
         dialogWindow.contentView.addChildView(i.view);
         const [width, height] = dialogWindow.getContentSize();
@@ -77,8 +101,31 @@ function replaceOnce(source,before,after,label){
   return source.slice(0,first)+after+source.slice(first+before.length);
 }
 
+function addDockPreviewHandling(source){
+  source=replaceOnce(source,
+    '          if (!instance.dialogWindow && !instance.owner.isDestroyed()) instance.owner.contentView.removeChildView(instance.view);\n          if (!instance.dialogWindow) host.contentView.addChildView(instance.view);',
+    '          if (instance.dialogWindow && instance.dialogPlaceholder) {\n            if (instance.dialogPlaceholderOwner && !instance.dialogPlaceholderOwner.isDestroyed()) instance.dialogPlaceholderOwner.contentView.removeChildView(instance.dialogPlaceholder);\n            host.contentView.addChildView(instance.dialogPlaceholder);\n            instance.dialogPlaceholderOwner = host;\n          } else {\n            if (!instance.owner.isDestroyed()) instance.owner.contentView.removeChildView(instance.view);\n            host.contentView.addChildView(instance.view);\n          }',
+    'modal panel owner change');
+  source=replaceOnce(source,
+    '            if (!instance.dialogWindow) {\n              host.contentView.removeChildView(instance.view);\n              parent.contentView.addChildView(instance.view);\n            }\n            instance.owner = parent;',
+    '            if (instance.dialogWindow && instance.dialogPlaceholder) {\n              host.contentView.removeChildView(instance.dialogPlaceholder);\n              parent.contentView.addChildView(instance.dialogPlaceholder);\n              instance.dialogPlaceholderOwner = parent;\n            } else {\n              host.contentView.removeChildView(instance.view);\n              parent.contentView.addChildView(instance.view);\n            }\n            instance.owner = parent;',
+    'detached modal panel owner');
+  source=replaceOnce(source,
+    '        if (instance.dialogWindow && !instance.dialogWindow.isDestroyed()) {\n          const [dialogWidth, dialogHeight]',
+    '        if (instance.dialogPlaceholder) instance.dialogPlaceholder.setBounds(instance.bounds);\n        if (instance.dialogWindow && !instance.dialogWindow.isDestroyed()) {\n          const [dialogWidth, dialogHeight]',
+    'modal panel bounds');
+  return source;
+}
+
 export function upgradeCustomDialogSource(source){
-  if(source.includes('PHOTON_AI_CUSTOM_DIALOG_WINDOW'))return source;
+  if(source.includes('PHOTON_AI_CUSTOM_DIALOG_PANEL_PREVIEW'))return source;
+  if(source.includes('PHOTON_AI_CUSTOM_DIALOG_WINDOW')){
+    const start=source.indexOf('    // PHOTON_AI_CUSTOM_DIALOG_WINDOW:');
+    const end=source.indexOf('    if (method === "ui.render")',start);
+    if(start<0||end<0||source.slice(start,end).indexOf('dialogWindow.show()')<0)throw Error('Photon modal controller changed; no archive was installed.');
+    source=source.slice(0,start)+newDialog+'\n'+source.slice(end);
+    return addDockPreviewHandling(source);
+  }
   source=replaceOnce(source,oldDialog,newDialog,'custom dialog');
   source=replaceOnce(source,
     '    if (!instance.owner.isDestroyed()) instance.owner.contentView.removeChildView(instance.view);\n    if (!instance.view.webContents.isDestroyed()) instance.view.webContents.close();',
@@ -104,5 +151,5 @@ export function upgradeCustomDialogSource(source){
     '        if (instance) {\n          instance.view.setVisible(false);\n          clearTimeout(instance.pendingHide);',
     '        if (instance) {\n          if (!instance.dialogWindow) instance.view.setVisible(false);\n          clearTimeout(instance.pendingHide);',
     'panel detach');
-  return source;
+  return addDockPreviewHandling(source);
 }
