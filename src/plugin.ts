@@ -10,7 +10,7 @@ import {MODEL_CACHE_MS,cachedBundledModels,listsModels,loadProviderModels,modelC
 import {applyOutputOptions} from './providers/output-options';
 import {signInDialog,updateSignInDialog} from './signin';
 import {loadAccountQuota} from './providers/quota';
-import {cleanLibrary,fillTemplate,newId,recordPrompt,referenceBytes,REFERENCE_BUDGET,ROOT_FOLDER,templateFields,type LibraryState,type ReferenceImage,type TemplateItem} from './library';
+import {cleanLibrary,fillTemplate,newId,recordPrompt,referenceBytes,REFERENCE_BUDGET,ROOT_FOLDER,templateFields,type LibraryState,type ReferenceImage,type TemplateItem,type TemplateField} from './library';
 import {seedPremadeTemplates} from './premade-templates';
 import type {CustomPanel} from './custom-ui';
 interface Settings {provider:ProviderId;models:Partial<Record<ProviderId,string>>;customBase:string;customModel:string;customEdit:boolean;customSizes:string;customQualities:string;customMaxEdge:number;modelCache:Partial<Record<ProviderId,ModelCacheEntry>>;library:LibraryState;}
@@ -35,6 +35,17 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
   const refreshContext=async()=>{const doc=await api.documents.active();hasSelection=!!doc?.hasSelection;};
   const clearResult=async()=>{if(result?.capture)await api.documents.release(result.capture.token).catch(()=>{});result=undefined;};
   const save=()=>{const bytes=()=>new TextEncoder().encode(JSON.stringify(settings)).length;while(bytes()>940_000&&settings.library.history.length>0)settings.library.history.shift();if(bytes()>940_000)throw new PluginError('LIBRARY_FULL','The library is full. Remove saved cards or image references before adding more.');return api.settings.set(settings as unknown as Record<string,unknown>);};
+  const fieldControl=(field:TemplateField):Control=>{
+    const id='templateField:'+field.name,value=templateValues[field.name];
+    if(field.kind==='check')return {type:'checkbox',id,label:field.name,value:value==='true',disabled:busy,description:field.choices?.[1]?.content?'Unchecked: '+field.choices[1].content:undefined};
+    if(field.kind==='radio'||field.kind==='multi'){
+      const selected=new Set((value??'').split(',').filter(Boolean));
+      return {type:'group',id:'templateOptions:'+field.kind+':'+field.name,label:field.name,disabled:busy,children:(field.choices??[]).map((choice,index)=>({type:'checkbox',id:'templateOption:'+field.name+':'+index,label:choice.label,value:field.kind==='radio'?(value??'0')===String(index):selected.has(String(index)),disabled:busy}))};
+    }
+    if(field.kind==='select')return {type:'select',id,label:field.name,value:value??'0',disabled:busy,options:(field.choices??[]).map((choice,index)=>({value:String(index),label:choice.label}))};
+    if(field.options.length)return {type:'select',id,label:field.name,value:value??field.options[0],disabled:busy,options:field.options.map(option=>({value:option,label:option}))};
+    return {type:'input',id,label:field.name,value:value??'',disabled:busy};
+  };
   if(seededTemplates)await save();
   const refreshCredential=async()=>{const info=await api.credentials.status(keyId());credential=info.configured;try{credential=credential&&info.origin===endpoint();}catch{credential=false;}persistent=info.persistent;};
   const listContext=(id:ProviderId)=>({api,credential:id,job:{id:'models',signal:listAbort.signal,progress:async()=>{}}});
@@ -71,7 +82,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
       controls.push({type:'textarea',id:'prompt',label:mode==='fill'?'Describe the fill':'Describe your image',value:prompt,description:promptSaveError,disabled:busy});
       controls.push({type:'group',id:'promptActions',children:[{type:'button',id:'library',label:'Library',disabled:busy},{type:'button',id:'templates',label:'Templates',disabled:busy}]});
       const template=settings.library.templates.find(t=>t.id===activeTemplateId);
-      if(template){const fields:Control[]=templateFields(template.text).map(f=>f.options.length?{type:'select',id:'templateField:'+f.name,label:f.name,value:templateValues[f.name]??f.options[0],options:f.options.map(value=>({value,label:value}))}:{type:'input',id:'templateField:'+f.name,label:f.name,value:templateValues[f.name]??''});if(template.transparentBackground)fields.push({type:'text',text:'Transparent PNG · OpenAI GPT Image model required'});controls.push({type:'group',id:'templateSurface',label:template.name,children:fields});}
+      if(template){const fields:Control[]=templateFields(template.text).map(fieldControl);if(template.transparentBackground)fields.push({type:'text',text:'Transparent PNG · OpenAI GPT Image model required'});controls.push({type:'group',id:'templateSurface',label:template.name,children:fields});}
       const refs=[...(template?.references??[]),...manualReferences];
       controls.push({type:'group',id:'referenceStrip',label:'Image references',children:refs.map(r=>({type:'image',id:'reference:'+r.id,label:r.name,src:r.dataUrl}))});
     }
@@ -135,6 +146,20 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
       else if(event.id==='clearTemplate'){activeTemplateId='';templateValues={};}
       else if(event.id==='panelError'){error=String(event.value??'');}
       else if(event.id.startsWith('templateField:')){templateValues[event.id.slice(14)]=String(event.value??'');return;}
+      else if(event.id.startsWith('templateOption:')){
+        const match=/^templateOption:(.*):(\d+)$/.exec(event.id);
+        const template=settings.library.templates.find(item=>item.id===activeTemplateId);
+        const field=template&&match?templateFields(template.text).find(item=>item.name===match[1]):undefined;
+        const index=match?Number(match[2]):-1;
+        if(!field||index<0||index>=(field.choices?.length??0))return;
+        if(field.kind==='radio')templateValues[field.name]=String(index);
+        else if(field.kind==='multi'){
+          const selected=new Set((templateValues[field.name]??'').split(',').filter(Boolean));
+          if(event.value)selected.add(String(index));else selected.delete(String(index));
+          templateValues[field.name]=[...selected].sort((a,b)=>Number(a)-Number(b)).join(',');
+        }
+        return;
+      }
       else if(event.id==='manualReference'){const ref=JSON.parse(String(event.value)) as ReferenceImage;if(!/^data:image\/(png|jpeg|webp);base64,/.test(ref.dataUrl))throw new PluginError('INVALID_REFERENCE','Choose an image reference.');if(referenceBytes(settings.library)+manualReferences.reduce((n,r)=>n+r.dataUrl.length,0)+ref.dataUrl.length>REFERENCE_BUDGET)throw new PluginError('REFERENCE_LIMIT','Reference storage is full. Remove an image before adding another.');manualReferences.push(ref);}
       else if(event.id.startsWith('removeReference:')){const id=event.id.slice(16);manualReferences=manualReferences.filter(r=>r.id!==id);const template=settings.library.templates.find(t=>t.id===activeTemplateId);if(template?.references.some(r=>r.id===id)){template.references=template.references.filter(r=>r.id!==id);await save();}}
       else if(event.id==='apply'&&result){busy=true;await publish();await api.documents.applyImage({image:result.image,name:result.name,captureToken:result.capture?.token,documentId:result.target?.documentId,expectedRevision:result.target?.revision,newDocument:result.mode==='generate'&&!result.target});await clearResult();busy=false;await refreshContext();}

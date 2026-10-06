@@ -8,7 +8,33 @@ Save the current prompt with the icon inside the prompt field. Saved prompts and
 
 ## Templates
 
-A template's text supplies hidden context before the visible prompt. Choosing a template leaves the prompt field intact and shows the template name and fields below it. Write `{subject}` for a free-text field or `{style:oil|watercolor|ink}` for a dropdown. The first dropdown option is the default. Reusing a field name uses the same value in each place.
+A template's text supplies hidden context before the visible prompt. Choosing a
+template leaves the prompt field intact and shows the template name and fields
+below it. Tags in the template text define those controls:
+
+```text
+{Subject}
+{View|select:Front=>front view|Side=>side view}
+{Light|radio:Softbox=>soft studio light|Window=>window light}
+{Details|multi:Dew=>dew drops|Leaves=>autumn leaves}
+{Props|check:Add a few props.}
+{Grain|check:Add fine grain.|Keep the finish clean.}
+```
+
+`Subject` is a free-text field. `View` is a dropdown; `Light` is a visible
+single-choice radio group. `Details` shows independent checkboxes and inserts
+every selected snippet in the listed order. `Props` inserts its snippet only
+when checked. `Grain` inserts the first snippet when checked and the second
+when unchecked; the unchecked snippet is shown below that control.
+
+The word before `|` is the field label. After the control type, each choice
+can use `Short label=>prompt text`; omit `=>` when the label and inserted text
+are the same. Select and radio default to the first choice. Multiple
+checkboxes start empty; a single checkbox starts unchecked. An omitted
+unchecked snippet inserts nothing, while an explicit second snippet inserts
+that text (including the literal word `none` if written). Repeat a field
+name to reuse its value; the first definition of that name supplies its
+control. Existing `{style:oil|watercolor|ink}` dropdowns still work.
 
 Ten editable premade cards are installed into All templates once per library. Their workflows and research sources are in [Premade templates](premade-templates.md). The Transparent PNG option on a template uses OpenAI's alpha output settings and requires Generate mode with an OpenAI GPT Image model.
 

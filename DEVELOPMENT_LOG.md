@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Template field taxonomy (2026-10-06)
+
+Typed template tags now support dropdowns, visible single-choice radio
+groups, multiple-choice checkbox groups, and single checkboxes with an
+optional alternate unchecked snippet. Short option labels can map to longer
+prompt text. Existing free-text and colon-separated dropdown tags continue
+to work. Unselected multi-choice fields and checkboxes with no unchecked
+snippet insert no text. Ten premade templates use the controls where they
+fit the design task. The version 2 seed updates untouched starter text but
+keeps edited and deleted cards, references, folders, and order. The template
+syntax is documented in `docs/library-and-templates.md`. No new `app.asar`
+patch is required; controls are rendered by the plugin's custom panel.
+
 ### Card action icons (2026-10-06)
 
 Library, History, and Templates cards now use the pen, trash, and magic wand

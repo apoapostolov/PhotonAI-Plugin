@@ -42,6 +42,10 @@ function controlHtml(c:Control):string{
     case 'group':
       if(c.id==='promptActions')return `<div class="prompt-actions">${(c.children??[]).map(controlHtml).join('')}</div>`;
       if(c.id==='templateSurface')return `<section class="template-surface"><div class="template-heading"><h3>${label}</h3><button type="button" class="template-remove" data-control="clearTemplate" title="Remove template" aria-label="Remove template">${trashIcon}</button></div>${(c.children??[]).map(controlHtml).join('')}</section>`;
+      if(c.id?.startsWith('templateOptions:')){
+        const radio=c.id.startsWith('templateOptions:radio:');
+        return `<fieldset class="template-choice-set"><legend>${label}</legend><div class="template-choice-options">${(c.children??[]).map((option,index)=>`<label class="template-choice"><input type="${radio?'radio':'checkbox'}" name="${esc(c.id)}" data-control="${esc(option.id)}" value="${index}" ${option.value?'checked':''} ${option.disabled?'disabled':''}><span>${esc(option.label)}</span></label>`).join('')}</div></fieldset>`;
+      }
       if(c.id==='referenceStrip')return `<div class="reference-strip">${(c.children??[]).map(controlHtml).join('')}<label class="reference-add" title="Add image reference" aria-label="Add image reference">＋<input type="file" accept="image/png,image/jpeg,image/webp" data-manual-reference hidden></label></div>`;
       return `<section class="control-group"><h3>${label}</h3>${(c.children??[]).map(controlHtml).join('')}</section>`;
     case 'text':return `<p class="control-text ${c.tone==='danger'?'danger':''}">${esc(c.text)}</p>`;
@@ -50,7 +54,7 @@ function controlHtml(c:Control):string{
       ? `<div class="field prompt-field"><label for="prompt-input">${label}</label><div class="prompt-input"><textarea id="prompt-input" data-control="${id}" rows="5" ${c.description?'aria-describedby="prompt-save-error"':''} ${disabled}>${esc(c.value)}</textarea><button type="button" class="prompt-save" data-control="savePrompt" title="Save current prompt to Library" aria-label="Save current prompt to Library" ${disabled}><span class="glyph-icon" aria-hidden="true">&#x1F516;&#xFE0E;</span></button></div>${c.description?`<p id="prompt-save-error" class="prompt-save-error" role="alert">${esc(c.description)}</p>`:''}</div>`
       : `<label class="field"><span>${label}</span><textarea data-control="${id}" rows="5" ${disabled}>${esc(c.value)}</textarea></label>`;
     case 'number':return `<label class="field"><span>${label}</span><input type="number" data-control="${id}" value="${value}" min="${c.min??0}" max="${c.max??999999}" ${disabled}></label>`;
-    case 'checkbox':return `<label class="check"><input type="checkbox" data-control="${id}" ${c.value?'checked':''} ${disabled}><span>${label}</span></label>`;
+    case 'checkbox':return `<div class="template-check-field"><label class="check"><input type="checkbox" data-control="${id}" ${c.value?'checked':''} ${disabled}><span>${label}</span></label>${c.description?`<small>${esc(c.description)}</small>`:''}</div>`;
     case 'select':return `<label class="field"><span class="${c.id==='model'&&c.description?'model-label-row':''}"><span>${label}</span>${c.id==='model'&&c.description?`<span class="model-quota" title="${esc(c.description)}">${esc(c.description)}</span>`:''}</span><select data-control="${id}" ${disabled}>${(c.options??[]).map(o=>`<option value="${esc(o.value)}" ${o.value===c.value?'selected':''}>${esc(o.label)}</option>`).join('')}</select></label>`;
     case 'tabs':return `<div class="tabs" role="group" aria-label="${label}">${(c.options??[]).map(o=>`<button type="button" data-control="${id}" data-value="${esc(o.value)}" class="${o.value===c.value?'active':''}" ${disabled}>${esc(o.label)}</button>`).join('')}</div>`;
     case 'button':return `<button type="button" data-control="${id}" class="action ${c.tone==='primary'?'primary':''}" ${disabled}>${label}</button>`;

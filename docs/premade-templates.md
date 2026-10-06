@@ -1,6 +1,10 @@
 # Premade templates
 
-The Template library starts with ten editable cards. Existing libraries receive them once. The migration keeps existing cards and folders, and deleting or changing a premade card does not restore the original on reload. The cards live in All templates so no extra folder appears in the Prompt Library.
+The Template library starts with ten editable cards. Existing libraries
+receive them once. The version 2 migration refreshes the text of untouched
+starter cards so their new controls appear, while preserving edited or
+deleted cards, attached references, folders, and order. The cards live in
+All templates so no extra folder appears in the Prompt Library.
 
 ## Selection
 
@@ -19,6 +23,18 @@ These are representative Photoshop design tasks, not a measured top-ten usage ra
 | Website hero image | Generate a crop-friendly hero with copy space | Brand, subject, copy placement, style |
 | Seamless surface pattern | Generate repeatable pattern artwork | Motif, treatment, density, colors |
 
+The refreshed starters demonstrate each control where it fits the task:
+
+- **Dropdown:** Transparent cutout view, product hero surface, poster genre.
+- **Radio group:** Transparent cutout style, product hero lighting, social
+  format, website copy placement.
+- **Multiple checkboxes:** Product hero surface details, lifestyle scene
+  details, poster visual cues, social accents.
+- **Checkbox with an empty unchecked state:** Product hero styling props,
+  background depth haze, object reflections.
+- **Checkbox with alternate unchecked text:** Poster film grain selects a
+  clean finish when unchecked.
+
 ## Transparent output
 
 Transparent cutout enables a saved **Transparent PNG** template option. With Generate mode and an OpenAI GPT Image model, the plugin sends `background=transparent` and `output_format=png` for both generation and image-reference edits. These are the [documented OpenAI image output settings](https://developers.openai.com/api/docs/guides/image-generation#customize-image-output). The plugin decodes the PNG to RGBA pixels for preview and Apply, and encodes PNG for export. The plugin rejects other providers and Fill mode before sending a paid request because their alpha behavior has not been qualified here. The option is editable on any template card.
@@ -27,4 +43,11 @@ The template prompts also describe clean edges and no painted checkerboard. Prom
 
 ## Usage
 
-Choose a card with **Use**. Its named text fields and dropdowns appear below the prompt; the template context stays out of the visible prompt. Enter the specific brief in the prompt itself. For Replace background, Add object, or Portrait refinement, switch to Fill and select the editable region in Photon before generating. Reference images may be attached to any card; the provider restrictions in [Prompt Library and Templates](library-and-templates.md) still apply.
+Choose a card with **Use**. Its text fields, dropdowns, radio groups, and
+checkboxes appear below the prompt; the template context stays out of the
+visible prompt. Enter the specific brief in the prompt itself. The tag
+syntax and defaults are in [Prompt Library and Templates](library-and-templates.md).
+For Replace background, Add object, or Portrait refinement, switch to Fill
+and select the editable region in Photon before generating. Reference images
+may be attached to any card; the provider restrictions in that guide still
+apply.
