@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Template authoring help (2026-10-06)
+
+The Templates content toolbar now places Template Fields to the right of New
+Template. Its info glyph toggles a concise guide to free-text, dropdown,
+radio, multi-checkbox, and two-state checkbox tags. Valid tags in saved
+template cards use the Photon accent token; regular template text keeps the
+skin's normal text color. Toggling the guide leaves unsaved card edits in
+place. Escape closes the guide before it closes the dialog. This is a plugin
+UI change and requires no additional Photon `app.asar` patch.
+
 ### Template field taxonomy (2026-10-06)
 
 Typed template tags now support dropdowns, visible single-choice radio

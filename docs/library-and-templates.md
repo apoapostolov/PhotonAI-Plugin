@@ -10,7 +10,10 @@ Save the current prompt with the icon inside the prompt field. Saved prompts and
 
 A template's text supplies hidden context before the visible prompt. Choosing a
 template leaves the prompt field intact and shows the template name and fields
-below it. Tags in the template text define those controls:
+below it. **Template Fields**, to the right of **New Template**, opens a guide
+inside the Templates dialog. Valid tags use the Photon accent color in saved
+card previews, so they stand apart from ordinary template text. Tags in the
+template text define these controls:
 
 ```text
 {Subject}

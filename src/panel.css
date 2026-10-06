@@ -113,6 +113,20 @@ small { color: var(--ph-muted); }
 .collection-toolbar { display: flex; gap: 6px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .collection-toolbar .tabs { min-width: 118px; }
 .collection-toolbar .tabs button { padding: 4px 6px; }
+.template-help-toggle { display: inline-flex; align-items: center; gap: 4px; min-height: 26px; margin-left: auto; padding: 4px 7px; border: 1px solid var(--ph-stroke); border-radius: 3px; background: var(--ph-black-6); color: var(--ph-muted); white-space: nowrap; }
+.template-help-toggle:hover { background: var(--ph-control-hover); color: var(--ph-text); }
+.template-help-toggle[aria-expanded="true"] { background: var(--ph-control-active); color: var(--ph-text); }
+.template-help-toggle .glyph-icon { font-size: 15px; }
+.template-fields-help { max-height: 270px; margin-bottom: 8px; padding: 9px; overflow: auto; border: 1px solid var(--ph-stroke); background: var(--ph-control); line-height: 1.4; }
+.template-fields-help[hidden] { display: none; }
+.template-fields-help p { margin: 0 0 9px; }
+.template-fields-help p:last-child { margin-bottom: 0; }
+.template-fields-help dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px 12px; margin: 0 0 9px; }
+.template-fields-help dl > div { min-width: 0; }
+.template-fields-help dt { font-weight: 600; }
+.template-fields-help dd { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 0; }
+.template-fields-help dd span { color: var(--ph-muted); }
+.template-fields-help code { color: var(--ph-accent); overflow-wrap: anywhere; }
 .add { white-space: nowrap; }
 .add:hover { background: var(--ph-control-hover); }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); align-items: start; gap: 7px; }
@@ -125,6 +139,7 @@ small { color: var(--ph-muted); }
 .drag-handle { cursor: grab; }
 .card-date { font-size: 11px; }
 .card p { max-height: 150px; margin: 4px 0 8px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; }
+.template-tag { padding: 0 1px; border-radius: 2px; background: var(--ph-control-active); color: var(--ph-accent); }
 .card textarea { min-height: 90px; resize: vertical; }
 .card input { margin-bottom: 5px; }
 .card-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; margin-top: 6px; }
@@ -160,7 +175,7 @@ small { color: var(--ph-muted); }
   .folder-row button:not(.folder) { width: 16px; }
   .collection-content { padding: 6px; }
   .collection-toolbar { flex-wrap: wrap; }
-  .collection-toolbar .tabs, .collection-toolbar .add { width: 100%; }
+  .collection-toolbar .tabs { width: 100%; }
   .cards { grid-template-columns: minmax(0,1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
