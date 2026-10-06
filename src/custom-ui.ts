@@ -27,7 +27,7 @@ const templateFieldHelp=(open:boolean)=>`<section id="template-fields-help" clas
     <div><dt>Checkbox</dt><dd><code>{Props|check:Add a few props.}</code><span>Unchecked adds nothing.</span></dd></div>
     <div><dt>Checkbox with two states</dt><dd><code>{Grain|check:Add fine grain.|Keep the finish clean.}</code><span>The second text is used when unchecked.</span></dd></div>
   </dl>
-  <p>Use <code>Short label=&gt;prompt text</code> to keep a choice short while sending more precise text. Dropdowns and radio groups start on their first option; checkboxes start off. Reuse a field name to reuse its value. Older tags such as <code>{Style:oil|watercolor}</code> still work.</p>
+  <p>Use <code>Short label=&gt;prompt text</code> to keep a choice short while sending more precise text. Dropdowns and radio groups start on their first option; checkboxes start off. Reuse a field name to reuse its value. Tags like <code>{Style:oil|watercolor}</code> still work.</p>
 </section>`;
 const root=document.getElementById('app')!;
 const overlay=document.getElementById('overlay')!;

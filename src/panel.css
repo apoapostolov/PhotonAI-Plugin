@@ -117,7 +117,7 @@ small { color: var(--ph-muted); }
 .template-help-toggle:hover { background: var(--ph-control-hover); color: var(--ph-text); }
 .template-help-toggle[aria-expanded="true"] { background: var(--ph-control-active); color: var(--ph-text); }
 .template-help-toggle .glyph-icon { font-size: 15px; }
-.template-fields-help { max-height: 270px; margin-bottom: 8px; padding: 9px; overflow: auto; border: 1px solid var(--ph-stroke); background: var(--ph-control); line-height: 1.4; }
+.template-fields-help { margin-bottom: 8px; padding: 9px; border: 1px solid var(--ph-stroke); background: var(--ph-control); line-height: 1.4; }
 .template-fields-help[hidden] { display: none; }
 .template-fields-help p { margin: 0 0 9px; }
 .template-fields-help p:last-child { margin-bottom: 0; }
