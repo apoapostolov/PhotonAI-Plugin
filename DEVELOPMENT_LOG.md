@@ -32,8 +32,8 @@ Photon Studio after reloading the development folder. Library
 opened as a separate modal and the AI panel controls remained visible in the
 dock. The installed `plugin.js` hash matched `dist/plugin/plugin.js`; the
 plugin registry showed zero issues and diagnostics. The same host path serves
-Templates, which has not been separately observed in this check. The panel
-restore path after closing the modal was not separately confirmed.
+Templates. A follow-up check confirmed the panel controls were usable after
+closing Library and remained visible when Templates opened.
 
 ### Visual template fields (2026-10-06)
 
