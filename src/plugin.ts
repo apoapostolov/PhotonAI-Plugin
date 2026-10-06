@@ -83,7 +83,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
       controls.push({type:'textarea',id:'prompt',label:mode==='fill'?'Describe the fill':'Describe your image',value:prompt,description:promptSaveError,disabled:busy});
       controls.push({type:'group',id:'promptActions',children:[{type:'button',id:'library',label:'Library',disabled:busy},{type:'button',id:'templates',label:'Templates',disabled:busy}]});
       const template=settings.library.templates.find(t=>t.id===activeTemplateId);
-      if(template){const fields:Control[]=templateFields(template.text).map(fieldControl);if(template.transparentBackground)fields.push({type:'text',text:'Transparent PNG · OpenAI GPT Image model required'});controls.push({type:'group',id:'templateSurface',label:template.name,children:fields});}
+      if(template){const fields:Control[]=templateFields(template.text).map(fieldControl);if(template.transparentBackground)fields.push({type:'text',text:'Transparent image · OpenAI, Codex, or Grok'});controls.push({type:'group',id:'templateSurface',label:template.name,children:fields});}
       const refs=[...(template?.references??[]),...manualReferences];
       controls.push({type:'group',id:'referenceStrip',label:'Image references',children:refs.map(r=>({type:'image',id:'reference:'+r.id,label:r.name,src:r.dataUrl}))});
     }
@@ -100,7 +100,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
     if(mode!=='remove'&&!prompt.trim())throw new PluginError('PROMPT_REQUIRED','Write a prompt before generating.');
     if(mode!=='generate'&&!selected.edit)throw new PluginError('MODEL_UNAVAILABLE','This model does not support editing.');
     const selectedTemplate=settings.library.templates.find(t=>t.id===activeTemplateId);const selectedReferences=[...(selectedTemplate?.references??[]),...manualReferences];
-    if(selectedTemplate?.transparentBackground&&(mode!=='generate'||settings.provider!=='openai'||!selected.id.startsWith('gpt-image-')))throw new PluginError('TRANSPARENT_UNSUPPORTED','Transparent PNG requires Generate mode with an OpenAI GPT Image model.');
+    if(selectedTemplate?.transparentBackground&&(mode!=='generate'||!['openai','codex','grok'].includes(settings.provider)||settings.provider!=='grok'&&!selected.id.startsWith('gpt-image-')))throw new PluginError('TRANSPARENT_UNSUPPORTED','Transparent images require Generate mode with OpenAI, Codex, or Grok.');
     if(mode!=='remove'&&selectedReferences.length&&!['openai','codex','gemini','grok','xai'].includes(settings.provider))throw new PluginError('REFERENCES_UNSUPPORTED','This provider does not support image references here. Remove the references or choose OpenAI, Codex, Gemini, or Grok.');
     busy=true;error='';await publish();const requestedMode=mode;const requestedProvider=settings.provider;let capture:Capture|undefined;
     try{

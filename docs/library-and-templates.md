@@ -4,7 +4,7 @@ AI Studio uses a custom Photon panel. The Library and Templates buttons sit on o
 
 ## Library
 
-Save the current prompt with the icon inside the prompt field. Saved prompts and History have separate tabs in Library. Folder names are entered directly in the sidebar. Card actions use the pen, trash, and magic wand icons from `svg/`; the icons follow Photon skin colors. The edit action changes to a checkmark while saving. To delete a folder, prompt, history entry, or template, click its trash glyph twice within two seconds. The first click turns it red; clicking elsewhere or waiting two seconds cancels deletion. Each submitted provider request records the full text sent to the provider, including expanded template context. Similar revisions appear as a stack; expand a stack to edit, delete, reorder, or reuse an earlier version. Use copies a prompt into the visible prompt field and closes Library.
+Save the current prompt with the icon inside the prompt field. Saved prompts and History have separate tabs in Library. Folder names are entered directly in the sidebar. Card actions use the pen, trash, and magic wand icons from `svg/`; the icons follow Photon skin colors. Edit opens a larger dialog above the Library or Templates dialog. Its toolbar inserts basic Markdown syntax for headings, emphasis, quotes, lists, links, images, tables, code, and rules. Save applies the changes; Cancel leaves the card untouched. To delete a folder, prompt, history entry, or template, click its trash glyph twice within two seconds. The first click turns it red; clicking elsewhere or waiting two seconds cancels deletion. Each submitted provider request records the full text sent to the provider, including expanded template context. Similar revisions appear as a stack; expand a stack to edit, delete, reorder, or reuse an earlier version. Use copies a prompt into the visible prompt field and closes Library.
 
 ## Templates
 
@@ -50,7 +50,19 @@ fields are converted once when the library loads; ordinary JSON keys stay
 unchanged. Values typed into a field are inserted as written and are not
 parsed for more tags.
 
-Ten editable premade cards are installed into All templates once per library. Their workflows and research sources are in [Premade templates](premade-templates.md). The Transparent PNG option on a template uses OpenAI's alpha output settings and requires Generate mode with an OpenAI GPT Image model.
+The template editor has buttons that insert editable examples of every field
+type: text, dropdown, radio, multiple checkboxes, one-state checkbox, and
+two-state checkbox. New Template opens the same editor. Cancel discards a new
+template without adding an empty card.
+
+Ten editable premade cards are installed into All templates once per library.
+Their workflows and research sources are in [Premade templates](premade-templates.md).
+The Transparent image option has a help glyph. In Generate mode, OpenAI GPT
+Image and Codex GPT Image requests ask for transparent PNG output. The Grok
+request asks for transparency in its prompt, but xAI does not document an
+alpha-output parameter, so a transparent result is not guaranteed. Other
+providers are blocked for this option until their transparency capabilities
+are checked and implemented.
 
 Templates and manual references can hold PNG, JPEG, or WebP images. The panel converts selected images to bounded JPEG copies (maximum 512 pixels on the longest edge) and shows square cropped thumbnails. On template cards, **＋ Reference** sits at the lower left, with attached icon-sized thumbnails beside it; hovering a thumbnail opens a larger preview. The card action glyphs stay at the lower right. Template references persist with the template; manual references last for the current panel session. Removing a template thumbnail in the panel removes it from that saved template.
 

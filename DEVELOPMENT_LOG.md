@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Full-size prompt and template editor (2026-10-06)
+
+Editing a Library, History, or Templates card now opens a second modal layer
+above the collection dialog. The editor has a large textarea and Markdown
+toolbar for headings, emphasis, quotes, lists, links, images, tables, code,
+and rules.
+Template editing adds insertion buttons for all six field examples. New
+Template opens the editor directly; Cancel does not create an empty card.
+The Transparent image help glyph opens a short capability note. OpenAI and
+Codex send a transparent PNG request; Grok adds a prompt instruction, since
+xAI does not document a transparent-background request parameter. The Grok
+result may be opaque. Other providers and Fill mode remain blocked for this
+template option. The editor is nested inside the existing promoted plugin
+view and needs no additional Photon `app.asar` patch.
+
 ### Double-brace template fields (2026-10-06)
 
 Template controls now use `{{...}}`; ordinary single braces stay in the

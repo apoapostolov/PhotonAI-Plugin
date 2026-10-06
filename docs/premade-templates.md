@@ -38,7 +38,17 @@ The refreshed starters demonstrate each control where it fits the task:
 
 ## Transparent output
 
-Transparent cutout enables a saved **Transparent PNG** template option. With Generate mode and an OpenAI GPT Image model, the plugin sends `background=transparent` and `output_format=png` for both generation and image-reference edits. These are the [documented OpenAI image output settings](https://developers.openai.com/api/docs/guides/image-generation#customize-image-output). The plugin decodes the PNG to RGBA pixels for preview and Apply, and encodes PNG for export. The plugin rejects other providers and Fill mode before sending a paid request because their alpha behavior has not been qualified here. The option is editable on any template card.
+Transparent cutout enables a saved **Transparent image** template option. In
+Generate mode, OpenAI GPT Image and Codex GPT Image requests send
+`background=transparent` and `output_format=png`, based on the
+[documented OpenAI image output settings](https://developers.openai.com/api/docs/guides/image-generation#customize-image-output).
+Codex uses a separate image route, so its exact request shape still needs
+live account qualification. Grok requests add a transparent-alpha instruction
+to the prompt; [xAI image generation documentation](https://docs.x.ai/developers/model-capabilities/images/generation)
+does not specify a transparent-background parameter or guarantee an alpha
+channel. The plugin decodes returned image bytes to RGBA pixels for preview
+and Apply, then encodes PNG for export. Fill mode and other providers are
+blocked for this option. The option is editable on any template card.
 
 The template prompts also describe clean edges and no painted checkerboard. Prompt wording alone cannot guarantee transparent pixels; the request option is what asks the provider for alpha.
 
