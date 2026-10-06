@@ -2,9 +2,22 @@
 
 ## Unreleased
 
+### Codex template conversion controls (2026-10-06)
+
+Renamed the editor action to **To text** and placed the selected model and
+both conversion actions at the right of the Transparent image row. The
+previous actions were disabled for the configured Codex `gpt-6-luna` model
+because the conversion adapter omitted Codex. Text-capable Codex models now
+use the signed-in account's selected model through the Codex Responses route.
+The plugin reads its response stream through the existing SDK byte response,
+checks for completion, and keeps the converted text unsaved until Save.
+Known image-only models remain unavailable for text conversion. No new
+`app.asar` patch is needed; this route has not been qualified by a live
+conversion request in Photon Studio.
+
 ### Template text conversion (2026-10-06)
 
-The template editor now offers **To JSON** and **To narrative** actions. They
+The template editor now offers **To JSON** and **To text** actions. They
 send the current instructions to the selected, configured model and replace
 the editor text only after a valid response. The user reviews the result and
 presses Save separately. JSON output must be an object, and conversion rejects
@@ -12,8 +25,8 @@ a result that drops or changes a `{{...}}` field. Editing during a request
 also prevents the late response from overwriting the newer text. Attached
 references, name, and transparent-image setting are unaffected.
 
-The selected model must return text. Gemini image models, compatible custom
-models, and OpenAI text-capable models use their existing credentials; known
+The selected model must return text. Codex, Gemini image models, compatible
+custom models, and OpenAI text-capable models use existing credentials; known
 image-only models have disabled conversion actions. No fallback model is
 selected silently. Provider responses have not been qualified with a live
 account. The feature uses existing network and job SDK capabilities and

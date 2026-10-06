@@ -1,13 +1,35 @@
 import {PluginError,type PhotonApi} from '@photon/plugin-sdk';
 import type {ProviderId} from './providers/types';
-import {auth,request} from './providers/common';
+import {auth,raw,request} from './providers/common';
+import {refreshSession,type OAuthSession} from './providers/oauth';
 import {templateTags} from './library';
 
 export type ConversionDirection='json'|'narrative';
 
 export function canConvertTemplate(provider:ProviderId,modelId:string):boolean{
   if(/(?:^|\/)(?:gpt-image|chatgpt-image|dall-e|grok-imagine-image)(?:[-.]|$)/i.test(modelId))return false;
-  return provider==='gemini'||provider==='custom'||provider==='openai';
+  return provider==='codex'||provider==='gemini'||provider==='custom'||provider==='openai';
+}
+
+function responseText(response:any):string{
+  if(typeof response?.output_text==='string')return response.output_text;
+  if(!Array.isArray(response?.output))return '';
+  return response.output.flatMap((item:any)=>Array.isArray(item?.content)?item.content:[]).filter((part:any)=>part?.type==='output_text'&&typeof part.text==='string').map((part:any)=>part.text).join('');
+}
+function codexStreamText(bytes:Uint8Array):string{
+  const stream=new TextDecoder().decode(bytes);
+  let deltas='',completed=false,final='';const finishedItems:string[]=[];
+  for(const block of stream.split(/\r?\n\r?\n/)){
+    const data=block.split(/\r?\n/).filter(line=>line.startsWith('data:')).map(line=>line.slice(5).trimStart()).join('\n');
+    if(!data||data==='[DONE]')continue;
+    let event:any;try{event=JSON.parse(data);}catch{continue;}
+    if(event.type==='response.output_text.delta'&&typeof event.delta==='string')deltas+=event.delta;
+    if(event.type==='response.output_item.done'){const itemText=responseText({output:[event.item]});if(itemText)finishedItems.push(itemText);}
+    if(event.type==='response.completed'){completed=true;final=responseText(event.response);}
+    if(event.type==='response.failed'||event.type==='response.incomplete')throw new PluginError('PROVIDER_ERROR',String(event.response?.error?.message??'Codex did not complete the conversion.'));
+  }
+  if(!completed)throw new PluginError('INVALID_RESULT','Codex ended before completing the conversion. The template was not changed.');
+  return final||finishedItems.join('')||deltas;
 }
 
 function fields(text:string):string[]{return templateTags(text).map(tag=>text.slice(tag.start,tag.end)).sort();}
@@ -34,7 +56,7 @@ function checkedResult(source:string,output:string,direction:ConversionDirection
   return rendered;
 }
 
-export async function convertTemplate(api:PhotonApi,options:{provider:ProviderId;model:string;baseUrl:string;credential:string;text:string;direction:ConversionDirection}):Promise<string>{
+export async function convertTemplate(api:PhotonApi,options:{provider:ProviderId;model:string;baseUrl:string;credential:string;text:string;direction:ConversionDirection;codexSession?:OAuthSession;onCodexSession?:(session:OAuthSession)=>Promise<void>}):Promise<string>{
   const {provider,model,text,direction}=options;
   if(!canConvertTemplate(provider,model))throw new PluginError('MODEL_UNAVAILABLE','The selected image model cannot return text. Choose a text-capable model to convert this template.');
   if(!text.trim())throw new PluginError('PROMPT_REQUIRED','Write template instructions before converting.');
@@ -50,7 +72,19 @@ export async function convertTemplate(api:PhotonApi,options:{provider:ProviderId
     await job.progress('Sending to '+model+'…');
     const context={api,job,credential:options.credential};
     let output='';
-    if(provider==='gemini'){
+    if(provider==='codex'){
+      let session=options.codexSession;
+      if(!session)throw new PluginError('AUTHENTICATION','Sign in to Codex before converting.');
+      if(session.refreshToken&&(!session.expiresAt||session.expiresAt<Date.now()+60_000)){
+        session=await refreshSession(context,'codex',session);
+        await options.onCodexSession?.(session);
+      }
+      const headers:Record<string,string>={originator:'codex_cli_rs'};
+      if(session.accountId)headers['ChatGPT-Account-Id']=session.accountId;
+      const reply=await raw<Uint8Array>(context,{url:'https://chatgpt.com/backend-api/codex/responses',method:'POST',headers,authorization:'Bearer '+session.accessToken,response:'bytes',json:{model,stream:true,store:false,tool_choice:'none',parallel_tool_calls:false,input:[{role:'user',content:[{type:'input_text',text:instruction+'\n\nTemplate:\n'+text}]}]}});
+      if(reply.status<200||reply.status>=300){let message='Codex request failed ('+reply.status+').';try{const body=JSON.parse(new TextDecoder().decode(reply.body));message=String(body.error?.message??body.detail??message);}catch{}throw new PluginError(reply.status===401||reply.status===403?'AUTHENTICATION':'PROVIDER_ERROR',message.slice(0,1000));}
+      output=codexStreamText(reply.body);
+    }else if(provider==='gemini'){
       const body=await request(context,{url:`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,method:'POST',credential:auth(context,'x-goog-api-key'),json:{contents:[{role:'user',parts:[{text:instruction+'\n\nTemplate:\n'+text}]}],generationConfig:{responseModalities:['TEXT']}}});
       output=(body.candidates??[]).flatMap((candidate:any)=>candidate.content?.parts??[]).filter((part:any)=>!part.thought&&typeof part.text==='string').map((part:any)=>part.text).join('\n');
     }else{

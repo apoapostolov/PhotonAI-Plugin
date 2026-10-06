@@ -70,15 +70,16 @@ inside a field of the same type before opening the dialog to edit its options;
 unsaved text intact. Both toolbar lines use the same button style and scroll
 horizontally in a narrow dialog.
 
-**To JSON** and **To narrative** use the selected model to rewrite the text
+**To JSON** and **To text** use the selected model to rewrite the text
 in the template editor. They are available when that model can return text.
 The JSON action requires an object; the narrative action requires valid JSON
 input. A response that changes any `{{...}}` field is rejected. The result
 stays in the editor until Save, so it can be reviewed or revised. Conversion
 does not alter the template's name, references, or transparent-image setting.
-The selected model is shown beside the actions. Known image-only models leave
-the actions disabled; select a text-capable model to use them. Gemini and
-compatible custom endpoints use the same configured key as image generation.
+The selected model and both actions sit at the right of the Transparent image
+row. Known image-only models leave the actions disabled; select a text-capable
+model to use them. Codex uses its signed-in account; Gemini and compatible
+custom endpoints use the same configured key as image generation.
 New Template opens the same editor. Cancel discards a new template without
 adding an empty card.
 

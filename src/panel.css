@@ -201,12 +201,13 @@ small { color: var(--ph-muted); }
 .editor-tools button:hover { background: var(--ph-control-hover); }
 .editor-text-label { color: var(--ph-muted); }
 .item-editor textarea { min-height: 150px; flex: 1; resize: none; line-height: 1.5; }
-.editor-conversion { display: flex; align-items: center; justify-content: flex-end; gap: 5px; min-width: 0; }
-.editor-conversion span { margin-right: auto; overflow: hidden; color: var(--ph-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.editor-conversion { display: flex; align-items: center; justify-content: flex-end; gap: 5px; min-width: 0; margin-left: auto; white-space: nowrap; }
+.editor-conversion span { overflow: hidden; color: var(--ph-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .editor-conversion button { flex: none; min-height: 25px; padding: 3px 8px; border: 1px solid var(--ph-stroke); background: var(--ph-black-6); color: var(--ph-text); }
 .editor-conversion button:hover:not(:disabled) { background: var(--ph-control-hover); }
 .editor-conversion button:disabled { opacity: .5; }
-.editor-transparent { display: flex; align-items: center; gap: 7px; }
+.editor-transparent { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.editor-transparent > .check { flex: none; }
 .transparency-info { position: relative; display: inline-flex; }
 .transparency-info > button { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 1px solid var(--ph-stroke); border-radius: 50%; background: var(--ph-control); color: var(--ph-muted); }
 .transparency-info > button:hover, .transparency-info > button[aria-expanded="true"] { background: var(--ph-control-hover); color: var(--ph-text); }
