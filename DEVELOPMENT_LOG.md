@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Edit prompt label follows the selected action (2026-10-07)
+
+The prompt label in Edit now displays the selected Add, Change, or Replace
+hint. The segmented control tooltip and prompt label share one source string,
+so switching actions updates the visible instruction without changing the
+prompt text or the provider request. This is a plugin UI change and needs no
+ASAR patch.
+
 ### Card details header (2026-10-07)
 
 The Saved and History card disclosure is now labeled Details. Its header

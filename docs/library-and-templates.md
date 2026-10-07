@@ -48,6 +48,8 @@ The fixed **Edit Prompts** folder contains Add, Change, and Replace. Edit a
 card to change the hidden instruction prepended when that Edit action runs.
 This system folder appears only in Templates, not in the Saved or History
 Library views.
+In the Edit tab, the label above the prompt uses the selected action's short
+hint, matching the Add, Change, or Replace tooltip.
 The three cards and folder keep their names and IDs so the action always uses
 the right instruction. They cannot be deleted, moved, or applied as ordinary
 templates. Their defaults come from `config/edit-prompts.json`; later edits

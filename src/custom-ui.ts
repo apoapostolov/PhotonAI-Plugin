@@ -4,7 +4,7 @@ import {pillKind,templatePillsHtml,richText,richSelection,richOffsetBefore,richO
 import penSvg from '../svg/pen.svg';
 import trashSvg from '../svg/trash.svg';
 import wandSvg from '../svg/wand-magic-sparkles.svg';
-import {EDIT_PROMPTS_FOLDER,isEditPrompt} from './edit-prompts';
+import {EDIT_PROMPTS_FOLDER,editActionHints,isEditPrompt,type EditAction} from './edit-prompts';
 import type {TransferView} from './library-transfer';
 
 const esc=(s:unknown)=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
@@ -53,12 +53,6 @@ function applyPhotonTheme(value:unknown):void{
   }
 }
 
-const editActionHints:Record<string,string>={
-  add:'Add content within the selection; preserve existing details.',
-  change:'Modify the named element within the selection; preserve its other details.',
-  replace:'Replace the named element within the selection; keep the surrounding image.'
-};
-
 function controlHtml(c:Control):string{
   const id=esc(c.id),label=esc(c.label),value=esc(c.value),disabled=c.disabled?'disabled':'';
   switch(c.type){
@@ -84,7 +78,7 @@ function controlHtml(c:Control):string{
     case 'number':return `<label class="field"><span>${label}</span><input type="number" data-control="${id}" value="${value}" min="${c.min??0}" max="${c.max??999999}" ${disabled}></label>`;
     case 'checkbox':return `<div class="template-check-field"><label class="check"><input type="checkbox" data-control="${id}" ${c.value?'checked':''} ${disabled}><span>${label}</span></label>${c.description?`<small>${esc(c.description)}</small>`:''}</div>`;
     case 'select':return `<label class="field"><span class="${c.id==='model'&&c.description?'model-label-row':''}"><span>${label}</span>${c.id==='model'&&c.description?`<span class="model-quota" title="${esc(c.description)}">${esc(c.description)}</span>`:''}</span><select data-control="${id}" ${disabled}>${(c.options??[]).map(o=>`<option value="${esc(o.value)}" ${o.value===c.value?'selected':''}>${esc(o.label)}</option>`).join('')}</select></label>`;
-    case 'tabs':return `<div class="tabs" role="group" aria-label="${label}">${(c.options??[]).map(o=>{const hint=c.id==='editAction'?editActionHints[o.value]:undefined;return `<button type="button" data-control="${id}" data-value="${esc(o.value)}" class="${o.value===c.value?'active':''}" ${hint?`title="${esc(hint)}" aria-description="${esc(hint)}"`:''} ${disabled}>${esc(o.label)}</button>`;}).join('')}</div>`;
+    case 'tabs':return `<div class="tabs" role="group" aria-label="${label}">${(c.options??[]).map(o=>{const hint=c.id==='editAction'?editActionHints[o.value as EditAction]:undefined;return `<button type="button" data-control="${id}" data-value="${esc(o.value)}" class="${o.value===c.value?'active':''}" ${hint?`title="${esc(hint)}" aria-description="${esc(hint)}"`:''} ${disabled}>${esc(o.label)}</button>`;}).join('')}</div>`;
     case 'button':return `<button type="button" data-control="${id}" class="action ${c.tone==='primary'?'primary':''}" ${disabled}>${label}</button>`;
     case 'image':return c.id?.startsWith('reference:')?`<span class="reference-thumb"><img src="${esc(c.src)}" alt="${label}"><button type="button" data-control="removeReference:${esc(c.id.slice(10))}" aria-label="Remove ${label}"></button></span>`:`<img class="result-image" alt="${label}" src="${esc(c.src)}">`;
     case 'progress':return `<progress value="${Number(c.value)||0}" max="100"></progress>`;

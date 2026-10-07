@@ -13,7 +13,7 @@ import {loadAccountQuota} from './providers/quota';
 import {cleanLibrary,fillTemplate,migrateTemplateSyntax,newId,recordPrompt,referenceBytes,REFERENCE_BUDGET,ROOT_FOLDER,templateFields,type LibraryState,type PromptItem,type ReferenceImage,type TemplateItem,type TemplateField} from './library';
 import {captureHistoryContext,cleanHistoryImages,compactHistoryImages,historyImageBytes,restoreHistoryImages,restoreHistoryTemplate} from './history-images';
 import {seedPremadeTemplates} from './premade-templates';
-import {ensureEditPrompts,editPrompt,type EditAction} from './edit-prompts';
+import {ensureEditPrompts,editPrompt,editActionHints,type EditAction} from './edit-prompts';
 import {readPluginConfig,writePluginConfig} from './plugin-config';
 import type {CustomPanel} from './custom-ui';
 import {canConvertTemplate,convertTemplate} from './template-conversion';
@@ -114,7 +114,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
     if(mode==='fill')controls.push({type:'tabs',id:'editAction',label:'Edit action',value:editAction,disabled:busy,options:[{value:'add',label:'Add'},{value:'change',label:'Change'},{value:'replace',label:'Replace'}]});
     if(mode!=='generate'&&!m?.edit)controls.push({type:'text',tone:'danger',text:'This model does not support image editing. Choose a model with edit support.'});
     if(mode!=='remove'){
-      controls.push({type:'textarea',id:'prompt',label:mode==='fill'?'Describe the edit':'Describe your image',value:prompt,description:promptSaveError,disabled:busy});
+      controls.push({type:'textarea',id:'prompt',label:mode==='fill'?editActionHints[editAction]:'Describe your image',value:prompt,description:promptSaveError,disabled:busy});
       controls.push({type:'group',id:'promptActions',children:[{type:'button',id:'library',label:'Library',disabled:busy},{type:'button',id:'templates',label:'Templates',disabled:busy}]});
       const template=activeTemplate();
       if(template){const fields:Control[]=templateFields(template.text).map(fieldControl);if(template.transparentBackground)fields.push({type:'text',text:'Transparent image · OpenAI, Codex, or Grok'});controls.push({type:'group',id:'templateSurface',label:template.name,children:fields});}
