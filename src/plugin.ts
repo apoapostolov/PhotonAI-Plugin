@@ -12,6 +12,7 @@ import {signInDialog,updateSignInDialog} from './signin';
 import {loadAccountQuota} from './providers/quota';
 import {cleanLibrary,fillTemplate,migrateTemplateSyntax,newId,recordPrompt,referenceBytes,REFERENCE_BUDGET,ROOT_FOLDER,templateFields,type LibraryState,type ReferenceImage,type TemplateItem,type TemplateField} from './library';
 import {seedPremadeTemplates} from './premade-templates';
+import {ensureEditPrompts,editPrompt,type EditAction} from './edit-prompts';
 import {readPluginConfig,writePluginConfig} from './plugin-config';
 import type {CustomPanel} from './custom-ui';
 import {canConvertTemplate,convertTemplate} from './template-conversion';
@@ -23,10 +24,11 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
   const hasStoredLibrary=!!storedLibrary&&typeof storedLibrary==='object'&&Array.isArray((storedLibrary as Partial<LibraryState>).templates)&&Array.isArray((storedLibrary as Partial<LibraryState>).prompts);
   let settings:Settings={provider:'openai',models:{},customBase:'https://api.openai.com/v1',customModel:'',customEdit:true,customSizes:'1024x1024,1536x1024,1024x1536',customQualities:'',customMaxEdge:2048,modelCache:{},...oldSettings,library:cleanLibrary(hasStoredLibrary?storedLibrary:oldSettings.library)};
   const seededTemplates=seedPremadeTemplates(settings.library);
+  const seededEditPrompts=ensureEditPrompts(settings.library);
   const migratedTemplateSyntax=migrateTemplateSyntax(settings.library);
   settings.modelCache=sanitizeModelCache(settings.modelCache);
   if(!providers.some(p=>p.id===settings.provider))settings.provider='openai';
-  let mode:Mode='generate',prompt='',promptSaveError='',size='1024x1024',quality='auto',busy=false,error='',credential=false,persistent=true,result:Result|undefined,insert=false,hasSelection=false,activeTemplateId='',templateValues:Record<string,string>={},manualReferences:ReferenceImage[]=[];
+  let mode:Mode='generate',editAction:EditAction='add',prompt='',promptSaveError='',size='1024x1024',quality='auto',busy=false,error='',credential=false,persistent=true,result:Result|undefined,insert=false,hasSelection=false,activeTemplateId='',templateValues:Record<string,string>={},manualReferences:ReferenceImage[]=[];
   const sessions:Partial<Record<'codex'|'grok',OAuthSession>>={};const quotas:Partial<Record<'codex'|'grok',string>>={};
   const subscriptions:{dispose():void}[]=[];let disposed=false;const listAbort=new AbortController();let refreshTimer:ReturnType<typeof setTimeout>|undefined;let quotaTimer:ReturnType<typeof setTimeout>|undefined;let quotaBusy=false;
   const provider=()=>providers.find(p=>p.id===settings.provider)!;
@@ -51,7 +53,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
     if(field.options.length)return {type:'select',id,label:field.name,value:value??field.options[0],disabled:busy,options:field.options.map(option=>({value:option,label:option}))};
     return {type:'input',id,label:field.name,value:value??'',disabled:busy};
   };
-  if(seededTemplates||migratedTemplateSyntax||!hasStoredLibrary||oldSettings.library!==undefined)await save();
+  if(seededTemplates||seededEditPrompts||migratedTemplateSyntax||!hasStoredLibrary||oldSettings.library!==undefined)await save();
   const refreshCredential=async()=>{const info=await api.credentials.status(keyId());credential=info.configured;try{credential=credential&&info.origin===endpoint();}catch{credential=false;}persistent=info.persistent;};
   const listContext=(id:ProviderId)=>({api,credential:id,job:{id:'models',signal:listAbort.signal,progress:async()=>{}}});
   const refreshModels=async(id:ProviderId,force:boolean)=>{
@@ -69,7 +71,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
   const armQuota=()=>{clearTimeout(quotaTimer);if(disposed)return;const handle=setTimeout(()=>{refreshShownQuota();armQuota();},10*60*1000);(handle as {unref?:()=>void}).unref?.();quotaTimer=handle;};
   const publish=async()=>{
     if(disposed)return;const m=model();if(m?.sizes?.length&&!m.sizes.includes(size))size=m.sizes[0];if(m?.qualities?.length&&!m.qualities.includes(quality))quality=m.qualities[0];const controls:Control[]=[
-      {type:'tabs',id:'mode',label:'Image operation',value:mode,disabled:busy,options:[{value:'generate',label:'Generate'},{value:'remove',label:'Remove'},{value:'fill',label:'Fill'}]},
+      {type:'tabs',id:'mode',label:'Image operation',value:mode,disabled:busy,options:[{value:'generate',label:'Generate'},{value:'remove',label:'Remove'},{value:'fill',label:'Edit'}]},
       {type:'select',id:'provider',label:'Provider',value:settings.provider,disabled:busy,options:providers.map(p=>({value:p.id,label:p.label}))}
     ];
     const oauthId=settings.provider==='codex'||settings.provider==='grok'?settings.provider:undefined;const oauthSession=oauthId?sessions[oauthId]:undefined;const signedIn=!!oauthSession||credential;
@@ -81,10 +83,11 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
     else controls.push({type:'select',id:'model',label:'Model',description:oauthId&&oauthSession&&!error?quotas[oauthId]:undefined,value:m?.id??'',disabled:busy,options:models().map(item=>({value:item.id,label:item.label}))});
     const accountModels=settings.provider==='custom'?settings.modelCache.custom?.models??[]:[];
     if(accountModels.length)controls.push({type:'select',id:'accountModel',label:'Account models',value:accountModels.some(item=>item.id===settings.customModel)?settings.customModel:'',disabled:busy,options:accountModels.map(item=>({value:item.id,label:item.label}))});
-    if(mode!=='generate')controls.push({type:'text',text:hasSelection?'The current selection defines the editable region.':'Make a selection in the document to continue.'},...(m?.edit==='prompt'?[{type:'text' as const,text:'Prompt-based editing: this model interprets the mask as a reference. Photon preserves pixels outside your selection when you apply.'}]:[]));
+    if(mode!=='generate')controls.push({type:'text',id:hasSelection&&m?.edit==='prompt'?'selectionHelp':undefined,text:hasSelection?'The current selection defines the editable region.':'Make a selection in the document to continue.'});
+    if(mode==='fill')controls.push({type:'tabs',id:'editAction',label:'Edit action',value:editAction,disabled:busy,options:[{value:'add',label:'Add'},{value:'change',label:'Change'},{value:'replace',label:'Replace'}]});
     if(mode!=='generate'&&!m?.edit)controls.push({type:'text',tone:'danger',text:'This model does not support image editing. Choose a model with edit support.'});
     if(mode!=='remove'){
-      controls.push({type:'textarea',id:'prompt',label:mode==='fill'?'Describe the fill':'Describe your image',value:prompt,description:promptSaveError,disabled:busy});
+      controls.push({type:'textarea',id:'prompt',label:mode==='fill'?'Describe the edit':'Describe your image',value:prompt,description:promptSaveError,disabled:busy});
       controls.push({type:'group',id:'promptActions',children:[{type:'button',id:'library',label:'Library',disabled:busy},{type:'button',id:'templates',label:'Templates',disabled:busy}]});
       const template=settings.library.templates.find(t=>t.id===activeTemplateId);
       if(template){const fields:Control[]=templateFields(template.text).map(fieldControl);if(template.transparentBackground)fields.push({type:'text',text:'Transparent image · OpenAI, Codex, or Grok'});controls.push({type:'group',id:'templateSurface',label:template.name,children:fields});}
@@ -95,7 +98,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
     if(m?.qualities?.length)controls.push({type:'select',id:'quality',label:'Quality',value:quality,disabled:busy,options:m.qualities.map(value=>({value,label:qualityLabel(value)}))});
     if(mode==='generate')controls.push({type:'checkbox',id:'insert',label:'Insert into the current document',value:insert,disabled:busy});
     if(error&&!oauthId)controls.push({type:'text',tone:'danger',text:error});
-    controls.push({type:'button',id:'run',tone:'primary',label:busy?'Working…':result?'Regenerate':mode==='generate'?'Generate Image':mode==='remove'?'Remove Selection':'Generate Fill',disabled:busy||settings.provider==='midjourney'||!signedIn||!m?.id||(mode==='generate'?!m?.generate:!m?.edit)||mode!=='generate'&&!hasSelection});
+    controls.push({type:'button',id:'run',tone:'primary',label:busy?'Working…':result?'Regenerate':mode==='generate'?'Generate Image':mode==='remove'?'Remove Selection':'Generate Edit',disabled:busy||settings.provider==='midjourney'||!signedIn||!m?.id||(mode==='generate'?!m?.generate:!m?.edit)||mode!=='generate'&&!hasSelection});
     if(result)controls.push({type:'group',label:'Result preview',children:[{type:'image',label:result.name,src:'data:image/png;base64,'+base64(result.bytes)},{type:'text',text:'Apply creates a new layer with one undo step. Your original layers stay editable.'},{type:'button',id:'apply',tone:'primary',label:'Apply',disabled:busy},{type:'button',id:'discard',label:'Discard preview',disabled:busy},{type:'button',id:'export',label:'Save result as PNG…',disabled:busy}]});
     await api.ui.render('ai',{title:'AI',controls} satisfies PanelModel);
   };
@@ -108,7 +111,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
     if(mode!=='remove'&&selectedReferences.length&&!['openai','codex','gemini','grok','xai'].includes(settings.provider))throw new PluginError('REFERENCES_UNSUPPORTED','This provider does not support image references here. Remove the references or choose OpenAI, Codex, Gemini, or Grok.');
     busy=true;error='';await publish();const requestedMode=mode;const requestedProvider=settings.provider;let capture:Capture|undefined;
     try{
-      const next=await api.jobs.run(requestedMode==='generate'?'Generating image…':requestedMode==='remove'?'Removing selection…':'Generating fill…',async job=>{
+      const next=await api.jobs.run(requestedMode==='generate'?'Generating image…':requestedMode==='remove'?'Removing selection…':'Editing selection…',async job=>{
         const target=insert&&requestedMode==='generate'?await api.documents.active():null;if(insert&&requestedMode==='generate'&&!target)throw new PluginError('DOCUMENT_REQUIRED','Open a document before inserting an image.');
         let source:ImageInput|undefined;
         if(requestedMode!=='generate'){
@@ -122,13 +125,13 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
         const oauthProvider=requestedProvider==='codex'||requestedProvider==='grok'?requestedProvider:undefined;let session=oauthProvider?sessions[oauthProvider]:undefined;if(oauthProvider&&session?.refreshToken&&session.expiresAt&&session.expiresAt<Date.now()+60_000){session=await refreshSession({api,job,credential:oauthProvider},oauthProvider,session);sessions[oauthProvider]=session;}
         const template=settings.library.templates.find(t=>t.id===activeTemplateId);
         const context=template?fillTemplate(template.text,templateValues).trim():'';
-        const fullPrompt=requestedMode==='remove'?REMOVE_PROMPT:[context,prompt.trim()].filter(Boolean).join('\n\n');
+        const fullPrompt=requestedMode==='remove'?REMOVE_PROMPT:[requestedMode==='fill'?editPrompt(settings.library,editAction):'',context,prompt.trim()].filter(Boolean).join('\n\n');
         const references=requestedMode==='remove'?[]:[...(template?.references??[]),...manualReferences];
         const request:GenerateRequest={provider:requestedProvider,mode:requestedMode,model:selected.id,prompt:fullPrompt,size:selected.sizes?.length?size:requestedProvider==='custom'?'':'1024x1024',quality:selected.qualities?.length?quality:'',transparentBackground:!!template?.transparentBackground,source,references:references.map(r=>r.dataUrl),...(requestedProvider==='custom'?{baseUrl:settings.customBase}:{}),...(session?{accessToken:session.accessToken,accountId:session.accountId}:{})};
         if(requestedMode!=='remove'){recordPrompt(settings.library,fullPrompt,template?.name);await save().catch(()=>{});}
         await job.progress('Sending to '+provider().label+'…');const bytes=await adapters[requestedProvider].run({api,job,credential:keyId()},request);job.signal.throwIfAborted();
         await job.progress('Preparing preview…');const image=await api.images.decode(bytes,capture?{width:capture.bounds.width,height:capture.bounds.height}:undefined);job.signal.throwIfAborted();const encoded=await api.images.encode(image,{maxEdge:8192});
-        return {bytes:encoded.bytes,image,capture,name:requestedMode==='generate'?'AI Generated Image':requestedMode==='remove'?'AI Remove':'Generative Fill',mode:requestedMode,target:target?{documentId:target.id,revision:target.revision}:undefined} satisfies Result;
+        return {bytes:encoded.bytes,image,capture,name:requestedMode==='generate'?'AI Generated Image':requestedMode==='remove'?'AI Remove':'AI Edit',mode:requestedMode,target:target?{documentId:target.id,revision:target.revision}:undefined} satisfies Result;
       });
       await clearResult();result=next;capture=undefined;
     }catch(e){if(capture)await api.documents.release(capture.token).catch(()=>{});error=e instanceof Error?e.message:String(e);}
@@ -172,6 +175,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
       else if(event.id==='export'&&result){const file=await api.files.pick({save:true,name:result.name+'.png'});if(file)await api.files.write(file,result.bytes);}
       else if(event.id==='provider'){settings.provider=event.value as ProviderId;await refreshCredential();await refreshModels(settings.provider,false);if(settings.provider==='codex'||settings.provider==='grok')await refreshQuota(settings.provider);armRefresh();await save();}
       else if(event.id==='mode'){mode=event.value as Mode;await refreshContext();}
+      else if(event.id==='editAction'&&['add','change','replace'].includes(String(event.value)))editAction=event.value as EditAction;
       else if(event.id==='model'){settings.models[settings.provider]=String(event.value);await save();}
       else if(event.id==='accountModel'){settings.customModel=String(event.value??'');settings.models.custom=settings.customModel;await save();}
       else if(event.id==='prompt'){prompt=String(event.value??'');if(promptSaveError){promptSaveError='';await publish();}return;}

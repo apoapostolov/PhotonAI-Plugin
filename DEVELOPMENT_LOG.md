@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### Edit actions and selection help (2026-10-07)
+
+The visible Fill tab is now Edit. Its Add, Change, and Replace segmented
+choices prepend separate preservation instructions to the user's prompt before
+an edit request. The instructions live as editable cards in the fixed
+**Edit Prompts** folder in Templates. Their source defaults ship in
+`config/edit-prompts.json`, separate from the thirty general starter templates;
+edits persist in the plugin's private Library config. The fixed folder and
+three mode cards retain stable identities and cannot be deleted or moved.
+
+The prompt-based mask explanation no longer takes a full line on Remove and
+Edit. When a selection is active with a prompt-based edit model, a `?` beside
+the selection guidance shows the same explanation on hover, focus, or click.
+The internal `fill` mode ID stays in place for Photon command and provider
+compatibility. This change needs no new ASAR patch beyond the separate modal
+and plugin config host capabilities already documented.
+
+TypeScript typecheck and build passed. No automated tests or live Photon
+interaction were run for this change.
+
 ### Template conversion row labels (2026-10-07)
 
 The template editor now shows `[model] · Convert to: JSON Text` at the right

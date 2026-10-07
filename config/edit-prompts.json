@@ -1,0 +1,17 @@
+[
+  {
+    "id": "edit-prompt:add",
+    "name": "Add",
+    "text": "Edit only the current selection. Treat everything already visible in the supplied image as the reference to preserve. Add only the element or detail the user requests; do not remove, replace, restyle, or move existing elements. Match the image's scale, perspective, lighting, texture, and shadows. Keep all unrelated content intact."
+  },
+  {
+    "id": "edit-prompt:change",
+    "name": "Change",
+    "text": "Edit only the current selection. Identify the existing element and the specific change described by the user. Change only that recognized element as requested. Preserve its other properties, every unrelated element, and the original composition. Match the surrounding perspective, lighting, texture, and shadows."
+  },
+  {
+    "id": "edit-prompt:replace",
+    "name": "Replace",
+    "text": "Edit only the current selection. Identify and remove only the element the user names, then replace it with what the user asks for. Retain every other visible element from the supplied image as reference, including their positions and appearance. Blend the replacement with the surrounding scale, perspective, lighting, texture, and shadows."
+  }
+]

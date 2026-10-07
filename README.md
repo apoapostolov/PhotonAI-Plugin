@@ -26,12 +26,12 @@ For development, **Import folder…** → `dist/plugin`; after rebuilding, use
 
 Choose a provider and **Connect provider**. Photon opens its own password field; the plugin
 receives a credential reference, never your saved key. Configure a separate key per provider.
-Click Generate, Remove, or Fill explicitly to make a billable provider request.
+Click Generate, Remove, or Edit explicitly to make a billable provider request.
 
 - **Generate:** enter a prompt, preview the result, and Apply into a new RGB document.
   Enable “Insert into the current document” to place it into an existing RGB document instead.
 - **Remove:** select unwanted content, invoke **AI Remove…** from the selection menu, and preview.
-- **Fill:** make a selection, invoke **Generative Fill…**, and describe the replacement.
+- **Edit:** make a selection, invoke **Generative Fill…**, choose Add, Change, or Replace, and describe the edit.
 - **Apply:** creates a named layer and one undo step. Selection edits have an editable mask.
   Source layers remain unchanged. If the source document changed, regenerate before applying.
 - **Library:** save prompts, revisit every recent successful use in History, and expand stacks of similar revisions.

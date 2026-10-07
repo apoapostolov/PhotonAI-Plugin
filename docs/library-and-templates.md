@@ -8,6 +8,16 @@ Save the current prompt with the icon inside the prompt field. Saved prompts and
 
 ## Templates
 
+The fixed **Edit Prompts** folder contains Add, Change, and Replace. Edit a
+card to change the hidden instruction prepended when that Edit action runs.
+The three cards and folder keep their names and IDs so the action always uses
+the right instruction. They cannot be deleted, moved, or applied as ordinary
+templates. Their defaults come from `config/edit-prompts.json`; later edits
+are saved in the plugin's private Library config. Add preserves existing
+content and introduces only the requested detail. Change modifies only the
+named existing element. Replace removes the named element and inserts the
+requested replacement. The visible prompt remains the user's own text.
+
 A template's text supplies hidden context before the visible prompt. Choosing a
 template leaves the prompt field intact and shows the template name and fields
 below it. **Template Fields**, to the right of **New Template**, opens a guide

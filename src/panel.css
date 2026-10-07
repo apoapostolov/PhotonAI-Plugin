@@ -35,6 +35,13 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .field select option { background: var(--ph-black-4); }
 .control-text { margin: 0; color: var(--ph-muted); line-height: 1.4; }
 .control-text.danger { color: var(--ph-text); border-left: 2px solid var(--ph-danger); padding-left: 6px; }
+.selection-guidance { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.selection-info { position: relative; flex: none; }
+.selection-info > button { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 1px solid var(--ph-stroke); border-radius: 50%; background: var(--ph-black-6); color: var(--ph-muted); font-size: 11px; line-height: 1; cursor: help; }
+.selection-info > button:hover, .selection-info > button:focus-visible { color: var(--ph-text); background: var(--ph-control-hover); }
+.selection-popover { display: none; position: absolute; z-index: 10; top: calc(100% + 5px); right: 0; width: min(260px, 75vw); padding: 8px; border: 1px solid var(--ph-stroke-strong); border-radius: 3px; background: var(--ph-black-5); color: var(--ph-text); box-shadow: var(--ph-hairline); font-size: 11px; line-height: 1.4; }
+.selection-info:hover .selection-popover, .selection-info:focus-within .selection-popover, .selection-info.open .selection-popover { display: block; }
+.tabs[aria-label="Edit action"] { margin-top: -3px; }
 .model-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
 .model-label-row > span:first-child { flex: none; }
 .model-quota { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; font-size: 11px; color: var(--ph-muted); }
