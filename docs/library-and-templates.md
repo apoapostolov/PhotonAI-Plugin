@@ -38,6 +38,13 @@ are saved in the plugin's private Library config. Add preserves existing
 content and introduces only the requested detail. Change modifies only the
 named existing element. Replace removes the named element and inserts the
 requested replacement. The visible prompt remains the user's own text.
+Current defaults also keep the source image's unrelated faces, text,
+positions, and background, and use extra references only for the requested
+change. Unmodified older defaults update once; custom edits stay as saved.
+OpenAI receives a native alpha selection mask. Codex and Grok receive the
+source image plus a white-area guide and extra boundary instructions. The
+result preview identifies which path was used; Apply clips either result to
+the original selection.
 
 A template's text supplies hidden context before the visible prompt. Choosing a
 template leaves the prompt field intact and shows the template name and fields

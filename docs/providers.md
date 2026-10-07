@@ -7,8 +7,8 @@ when a key, provider or model changes.
 
 | Provider | API / auth | Generation | Editing |
 | --- | --- | --- | --- |
-| OpenAI | Images API; Bearer | GPT Image profiles | Multipart source and transparent-alpha mask |
-| Codex | ChatGPT device sign-in, then `images/generations` and `images/edits`; Bearer | GPT Image Flare and Sunburst | Source plus white-mask reference, prompt-based |
+| OpenAI | Images API; Bearer | GPT Image profiles | Multipart source and transparent-alpha mask; high input fidelity on GPT Image 1/1.5 |
+| Codex | ChatGPT device sign-in, then `images/generations` and `images/edits`; Bearer | GPT Image Flare and Sunburst | Source first, selection guide second; prompt-based |
 | Gemini | generateContent; x-goog-api-key | Flash Image | Source plus white-mask reference, prompt-based |
 | Midjourney | No official image API | — | — |
 | Ideogram | `x-api-key` | Ideogram 4.5 | Precise edit; black mask marks the area to change |
@@ -16,9 +16,35 @@ when a key, provider or model changes.
 | fal.ai | queue; Authorization: Key | FLUX Dev | FLUX Pro Fill source + white mask |
 | Replicate | model predictions; Bearer | FLUX Dev | FLUX Fill Pro source + white mask |
 | Together AI | images/generations; Bearer | FLUX.2 | FLUX.2 Pro reference images, prompt-based |
-| X API | `https://api.x.ai` images; Bearer API key | Grok Imagine 2.0 and Grok Imagine | Source plus white-mask reference, prompt-based |
-| Grok | xAI device sign-in or API key; Bearer | Grok Imagine 2.0 and Grok Imagine | Source plus white-mask reference, prompt-based |
+| X API | `https://api.x.ai` images; Bearer API key | Grok Imagine 2.0 and Grok Imagine | Source first, selection guide second; prompt-based |
+| Grok | xAI device sign-in or API key; Bearer | Grok Imagine 2.0 and Grok Imagine | Source first, selection guide second; prompt-based |
 | Custom | compatible Images API; Bearer | User-supplied model | Optional compatible multipart mask endpoint |
+
+In Edit, the **Edit Prompts** folder supplies editable Add, Change, and
+Replace instructions. The current defaults identify what to add, change, or
+replace, name what must remain in the source, and treat extra references as
+guides for the requested edit. A previous unmodified default is upgraded when
+the library loads; customized instructions remain unchanged. Prompt-only
+adapters add a separate source-and-selection-guide instruction at request time.
+
+OpenAI sends the source image first and a transparent-alpha mask through
+`/images/edits`. Transparent mask pixels mark the area to edit. GPT Image
+1/1.5 requests set `input_fidelity=high`; GPT Image 2 and 2.5 omit it because
+the current API does not list that control for those models. The Edit model
+list puts Sunburst first and marks it **Precise**, with Flare marked **Fast**.
+The source and mask are encoded at the same dimensions before submission.
+A native mask guides generation; the model can still alter pixels in its
+preview. Photon limits the applied layer to the original selection.
+
+Codex's current ChatGPT image route and Grok/X API's JSON edit route do not
+expose a native mask parameter here. They receive the source as the first
+image and a white-area selection guide as the second, plus a prompt explaining
+their roles. Their preview may drift outside the requested area; Photon clips
+Apply to the original selection. Grok/X API accept at most five edit images,
+so an edit has room for three further references after the source and guide.
+With Output size on **Auto**, the request omits an aspect-ratio override so
+Grok follows the first source image. These are one-shot edits; the plugin does
+not claim multi-turn image continuity or pixel-identical output.
 
 The bundled catalog is the fallback list. After a successful Codex or Grok sign-in, and after
 an API key is saved for OpenAI, Gemini, Together, X API, Grok, or a custom OpenAI-compatible
@@ -79,6 +105,8 @@ and documented setup. See `examples/provider.ts`. Test malformed responses, no-i
 ## Official references used for implementation
 
 - [OpenAI image generation](https://developers.openai.com/api/docs/guides/image-generation)
+- [OpenAI image edit API](https://developers.openai.com/api/reference/resources/images/methods/edit)
+- [OpenAI image prompting](https://developers.openai.com/api/docs/guides/image-prompting)
 - [Gemini image generation](https://ai.google.dev/gemini-api/docs/image-generation)
 - [Together image generation](https://docs.together.ai/docs/inference/images/overview)
 - [Together reference images](https://docs.together.ai/docs/inference/images/reference-images)
@@ -87,5 +115,7 @@ and documented setup. See `examples/provider.ts`. Test malformed responses, no-i
 - [BFL generation/polling](https://docs.bfl.ai/quick_start/generating_images)
 - [BFL image editing](https://docs.bfl.ai/flux_2/flux2_image_editing)
 - [xAI image generation](https://docs.x.ai/docs/guides/image-generations)
+- [xAI image editing](https://docs.x.ai/developers/model-capabilities/images/editing)
+- [xAI multi-image editing](https://docs.x.ai/developers/model-capabilities/images/multi-image-editing)
 - [Ideogram 4.5 generate](https://developer.ideogram.ai/api-reference/images/generate/ideogram-4-5)
 - [Ideogram 4.5 precise edit](https://developer.ideogram.ai/api-reference/images/precise-edit/ideogram-4-5)

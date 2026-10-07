@@ -30,6 +30,15 @@ Live-provider billing, account availability, quality and remote cancellation req
 provider key and a live request. Mocked responses are not proof of live provider qualification.
 This repository contains no keys and no automatic paid smoke test.
 
+The 2026-10-07 Edit preservation update was checked against the current
+OpenAI Images API reference and xAI image editing documentation. The installed
+Photon 0.1.42 encoder maps selected mask coverage to transparent alpha and
+resizes the source and masks with the same edge limit; the plugin now rejects
+unequal encoded dimensions. TypeScript typecheck, documentation checks, and
+packaging passed. No live OpenAI, Codex, or Grok edit was submitted. Exact
+visual preservation, provider-specific output dimensions, and repeated
+portrait comparisons remain open for live review.
+
 Provider image edits operate on sRGB references; prompt-based models may interpret selection
 boundaries imperfectly. Photon limits Apply with the original selection mask, preserving the
 unselected region. Regions larger than 16 megapixels are rejected with a smaller-selection

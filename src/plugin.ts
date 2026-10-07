@@ -18,7 +18,7 @@ import {readPluginConfig,writePluginConfig} from './plugin-config';
 import type {CustomPanel} from './custom-ui';
 import {canConvertTemplate,convertTemplate} from './template-conversion';
 interface Settings {provider:ProviderId;models:Partial<Record<ProviderId,string>>;customBase:string;customModel:string;customEdit:boolean;customSizes:string;customQualities:string;customMaxEdge:number;modelCache:Partial<Record<ProviderId,ModelCacheEntry>>;library:LibraryState;}
-interface Result {bytes:Uint8Array;image:ImagePixels;capture?:Capture;name:string;mode:Mode;target?:{documentId:string;revision:number};}
+interface Result {bytes:Uint8Array;image:ImagePixels;capture?:Capture;name:string;mode:Mode;editMethod?:'mask'|'prompt';target?:{documentId:string;revision:number};}
 export async function activate(api:PhotonApi,panel?:CustomPanel){
   const oldSettings=await api.settings.get<Partial<Settings>>();
   const storedLibrary=await readPluginConfig<unknown>('library');
@@ -37,7 +37,16 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
   const subscriptions:{dispose():void}[]=[];let disposed=false;const listAbort=new AbortController();let refreshTimer:ReturnType<typeof setTimeout>|undefined;let quotaTimer:ReturnType<typeof setTimeout>|undefined;let quotaBusy=false;
   const provider=()=>providers.find(p=>p.id===settings.provider)!;
   const customModel=():Model=>({id:settings.customModel,label:settings.customModel||'Enter a model ID',generate:true,edit:settings.customEdit?'mask':false,maxEdge:Math.min(8192,Math.max(64,settings.customMaxEdge||2048)),sizes:settings.customSizes.split(',').map(v=>v.trim()).filter(v=>/^[1-9][0-9]{1,3}x[1-9][0-9]{1,3}$/.test(v)),qualities:settings.customQualities.split(',').map(v=>v.trim()).filter(Boolean)});
-  const models=():Model[]=>{if(settings.provider==='custom')return [customModel()];const cached=settings.modelCache[settings.provider]?.models;return modelsFor({...provider(),models:cached?.length?cached:provider().models},mode).map(item=>applyOutputOptions(settings.provider,item));};
+  const models=():Model[]=>{
+    if(settings.provider==='custom')return [customModel()];
+    const cached=settings.modelCache[settings.provider]?.models;
+    const choices=modelsFor({...provider(),models:cached?.length?cached:provider().models},mode).map(item=>applyOutputOptions(settings.provider,item));
+    if(mode==='fill'&&(settings.provider==='openai'||settings.provider==='codex')){
+      choices.sort((a,b)=>Number(/gpt-image-2\.5-sunburst/.test(b.id))-Number(/gpt-image-2\.5-sunburst/.test(a.id)));
+      return choices.map(item=>({...item,label:/gpt-image-2\.5-sunburst/.test(item.id)?`${item.label} · Precise`:/gpt-image-2\.5-flare/.test(item.id)?`${item.label} · Fast`:item.label}));
+    }
+    return choices;
+  };
   const sizeLabel=(value:string)=>{const pixels=/^(\d+)x(\d+)$/.exec(value);if(pixels)return pixels[1]+' × '+pixels[2];return value==='auto'?'Auto':value;};
   const qualityLabel=(value:string):string=>{const compound=/^([a-z]+(?:_[a-z]+)?)@([0-9.]+k)$/i.exec(value);if(compound)return qualityLabel(compound[1])+' · '+compound[2].toUpperCase();if(value==='xhigh')return 'Extra high';if(value==='hd')return 'HD';if(/^[0-9.]+k$/i.test(value))return value.toUpperCase();return value.split('_').map(part=>part?part[0].toUpperCase()+part.slice(1):part).join(' ');};
   const model=()=>models().find(m=>m.id===settings.models[settings.provider])??models()[0];
@@ -123,6 +132,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
         {type:'button',id:'discard',label:'Discard',disabled:busy},
         {type:'button',id:'export',label:'Save as PNG',disabled:busy}
       ]},
+      ...(result.mode==='generate'?[]:[{type:'text' as const,text:result.editMethod==='mask'?'The provider received the selection mask. Check the preview; Apply limits changes to the selection.':'The provider received a selection guide. The preview may change nearby content; Apply limits changes to the selection.'}]),
       {type:'text',text:'Apply creates a new layer with one undo step. Your original layers stay editable.'}
     ]});
     await api.ui.render('ai',{title:'AI',controls} satisfies PanelModel);
@@ -145,6 +155,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
           const maskPixels=new Uint8Array(capture.width*capture.height*4);for(let i=0;i<capture.mask!.length;i++){maskPixels[i*4]=maskPixels[i*4+1]=maskPixels[i*4+2]=capture.mask![i];maskPixels[i*4+3]=255;}
           const maskImage={width:capture.width,height:capture.height,pixels:requestedProvider==='ideogram'?ideogramMask(capture.mask!):maskPixels};
           const white=await api.images.encode(maskImage,requestedProvider==='ideogram'?{maxEdge:selected.maxEdge}:{maxEdge:selected.maxEdge,mask:'white'}),alpha=await api.images.encode({width:capture.width,height:capture.height,pixels:maskPixels},{maxEdge:selected.maxEdge,mask:'alpha'});
+          if(encoded.width!==white.width||encoded.height!==white.height||encoded.width!==alpha.width||encoded.height!==alpha.height)throw new PluginError('MASK_SIZE','The selection mask does not match the source image. Try the edit again.');
           source={png:encoded.bytes,whiteMask:white.bytes,alphaMask:alpha.bytes,width:encoded.width,height:encoded.height};
         }
         const oauthProvider=requestedProvider==='codex'||requestedProvider==='grok'?requestedProvider:undefined;let session=oauthProvider?sessions[oauthProvider]:undefined;if(oauthProvider&&session?.refreshToken&&session.expiresAt&&session.expiresAt<Date.now()+60_000){session=await refreshSession({api,job,credential:oauthProvider},oauthProvider,session);sessions[oauthProvider]=session;}
@@ -160,7 +171,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
         try{await save(historyItem.id);}catch(reason){settings.library.history=settings.library.history.filter(item=>item.id!==historyItem.id);historyImagesDirty=compactHistoryImages(historyImages,settings.library)||historyImagesDirty;throw reason;}
         await job.progress('Sending to '+provider().label+'…');const bytes=await adapters[requestedProvider].run({api,job,credential:keyId()},request);job.signal.throwIfAborted();
         await job.progress('Preparing preview…');const image=await api.images.decode(bytes,capture?{width:capture.bounds.width,height:capture.bounds.height}:undefined);job.signal.throwIfAborted();const encoded=await api.images.encode(image,{maxEdge:8192});
-        return {bytes:encoded.bytes,image,capture,name:requestedMode==='generate'?'AI Generated Image':requestedMode==='remove'?'AI Remove':'AI Edit',mode:requestedMode,target:target?{documentId:target.id,revision:target.revision}:undefined} satisfies Result;
+        return {bytes:encoded.bytes,image,capture,name:requestedMode==='generate'?'AI Generated Image':requestedMode==='remove'?'AI Remove':'AI Edit',mode:requestedMode,editMethod:selected.edit||undefined,target:target?{documentId:target.id,revision:target.revision}:undefined} satisfies Result;
       });
       await clearResult();result=next;capture=undefined;
     }catch(e){if(capture)await api.documents.release(capture.token).catch(()=>{});error=e instanceof Error?e.message:String(e);}

@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### Provider-aware Edit preservation (2026-10-07)
+
+The Add, Change, and Replace defaults now describe the source image as the
+starting composition, specify the one requested change, and limit extra
+references to that change. A saved instruction is upgraded only if it still
+matches the previous shipped default; user-edited instructions remain intact.
+OpenAI sends a same-size source and transparent-alpha mask to the native edit
+endpoint. GPT Image 1 and 1.5 also request high input fidelity; GPT Image 2
+and 2.5 omit that unsupported option. Sunburst is first in the Edit model
+list and is labeled Precise; Flare is labeled Fast.
+
+Codex and Grok/X API continue to use the source plus a white-area selection
+guide because their current routes do not expose a native mask. The shared
+prompt guidance now names the image roles. Grok checks its five-image limit
+before submission and lets Auto aspect ratio follow the first source image.
+The preview now states whether the provider received a mask or a guide, and
+reminds the user that Apply limits changes to the selection. The installed
+Photon 0.1.42 encoder was inspected: its alpha mode maps selected coverage
+to transparency, and the source and masks use the same resize path. No new
+ASAR patch is needed. Live provider results and pixel-preservation behavior
+remain unverified.
+
 ### Saved prompt context (2026-10-07)
 
 Saving a prompt to Library now captures the same context as a new History
