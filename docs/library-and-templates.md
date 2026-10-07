@@ -4,6 +4,21 @@ AI Studio uses a custom Photon panel. The Library and Templates buttons sit on o
 
 ## Library
 
+The footer of Saved, History, and Templates has **Export** and **Import**.
+Choose **All** in the sidebar to export that entire tab, or choose a folder
+to export only its cards. The live text filter does not narrow an export.
+Each JSON file records the source tab, folder names, stack membership, card
+order, and any prompt context or image references. Import from the matching
+tab. Photon recreates missing folders by name and adds the cards to existing
+folders with the same name; importing the same file twice adds another copy.
+The fixed Edit Prompts cards retain their IDs and update their instructions
+when imported. Images travel inside the file and receive local storage keys
+on import, so prompt and History references remain usable on another
+installation. The destination's Library and reference storage limits still
+apply. Large collections can be exported one folder at a time. Export and
+Import use Photon's existing file picker and private config bridge; they
+need no additional ASAR patch.
+
 Save the current prompt with the icon inside the prompt field. Saved prompts and History have separate tabs in Library. Folder names are entered directly in the sidebar. Card actions use the pen, trash, and magic wand icons from `svg/`; folder rename uses that pen SVG, and the same trash SVG deletes folders and removes an applied template from the prompt. The icons follow Photon skin colors. Edit opens a larger dialog above the Library or Templates dialog. Its toolbar inserts basic Markdown syntax for headings, emphasis, quotes, lists, links, tables, code, and rules. The inline code button reads Code. Images are attached as references rather than inserted as Markdown image links. Save applies the changes; Cancel leaves the card untouched. To delete a folder, prompt, history entry, or template, click its trash glyph twice within two seconds. The first click turns it red; clicking elsewhere or waiting two seconds cancels deletion. Similar revisions appear as a stack; expand a stack to edit, delete, reorder, or reuse an earlier version.
 
 New saved prompts keep the active template text, filled fields, selected dropdown and radio options, checked controls, edit action, provider and model, output choices, and template and manual image references. Their cards show the attached template and reference thumbnails; **Request details** shows the saved field values. **Use** restores that snapshot in the panel. Editing a saved prompt changes its prompt text while retaining its snapshot. Prompts saved before this feature remain text-only; **Use** on those cards retains the panel's current context.
@@ -31,6 +46,8 @@ beyond the existing plugin config capability.
 
 The fixed **Edit Prompts** folder contains Add, Change, and Replace. Edit a
 card to change the hidden instruction prepended when that Edit action runs.
+This system folder appears only in Templates, not in the Saved or History
+Library views.
 The three cards and folder keep their names and IDs so the action always uses
 the right instruction. They cannot be deleted, moved, or applied as ordinary
 templates. Their defaults come from `config/edit-prompts.json`; later edits

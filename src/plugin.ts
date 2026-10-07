@@ -17,6 +17,7 @@ import {ensureEditPrompts,editPrompt,type EditAction} from './edit-prompts';
 import {readPluginConfig,writePluginConfig} from './plugin-config';
 import type {CustomPanel} from './custom-ui';
 import {canConvertTemplate,convertTemplate} from './template-conversion';
+import {exportCollection as prepareCollectionExport,importCollection as prepareCollectionImport} from './library-transfer';
 interface Settings {provider:ProviderId;models:Partial<Record<ProviderId,string>>;customBase:string;customModel:string;customEdit:boolean;customSizes:string;customQualities:string;customMaxEdge:number;modelCache:Partial<Record<ProviderId,ModelCacheEntry>>;library:LibraryState;}
 interface Result {bytes:Uint8Array;image:ImagePixels;capture?:Capture;name:string;mode:Mode;editMethod?:'mask'|'prompt';target?:{documentId:string;revision:number};}
 export async function activate(api:PhotonApi,panel?:CustomPanel){
@@ -225,7 +226,30 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
           try{await save();}catch(reason){settings.library.prompts=settings.library.prompts.filter(saved=>saved.id!==item.id);settings.library.history=previousHistory;historyImages.images=previousImages;historyImagesDirty=true;throw reason;}
         }
       }
-      else if((event.id==='library'||event.id==='templates')&&panel){const selected=model(),conversionProvider=settings.provider;await panel.openCollection(event.id==='library'?'prompts':'templates',{library:settings.library,historyImages:historyImages.images,save:save,usePrompt:async item=>{if(item.context){await restorePromptContext(item);return;}prompt=item.text;promptSaveError='';expectedReplayModel=undefined;restoredEditInstruction=undefined;if(restoredTemplate){restoredTemplate=undefined;activeTemplateId='';templateValues={};manualReferences=[];}await publish();},useHistory:restorePromptContext,useTemplate:async item=>{restoredTemplate=undefined;restoredEditInstruction=undefined;expectedReplayModel=undefined;activeTemplateId=item.id;templateValues={};await publish();},conversion:{model:selected?.label??'No model selected',available:!!selected&&canConvertTemplate(conversionProvider,selected.id)},convertTemplate:async(text,direction)=>{if(!selected?.id)throw new PluginError('MODEL_UNAVAILABLE','Choose a model before converting.');if(conversionProvider==='codex'?!sessions.codex:!credential)throw new PluginError('AUTHENTICATION','Connect this provider before converting.');return convertTemplate(api,{provider:conversionProvider,model:selected.id,baseUrl:settings.customBase,credential:conversionProvider,text,direction,codexSession:sessions.codex,onCodexSession:async session=>{sessions.codex=session;await saveOAuthSession('codex',session);}});}});return;}
+      else if((event.id==='library'||event.id==='templates')&&panel){const selected=model(),conversionProvider=settings.provider;await panel.openCollection(event.id==='library'?'prompts':'templates',{library:settings.library,historyImages:historyImages.images,save:save,
+        exportCollection:async(view,folderId)=>{
+          const transfer=prepareCollectionExport(settings.library,historyImages,view,folderId);
+          const scope=(transfer.folderName??'All').replace(/[<>:"/\\|?*\x00-\x1f]/g,'-').slice(0,50);
+          const file=await api.files.pick({save:true,name:`PhotonAI-${view}-${scope}.json`});
+          if(!file)return null;
+          await api.files.write(file,new TextEncoder().encode(transfer.json));
+          return {count:transfer.count};
+        },
+        importCollection:async view=>{
+          const file=await api.files.pick();
+          if(!file)return null;
+          const data=await api.files.read(file);
+          if(data.length>8_000_000)throw new Error('This import file is too large.');
+          const json=new TextDecoder('utf-8',{fatal:true}).decode(data);
+          const transfer=prepareCollectionImport(settings.library,historyImages,view,json);
+          const previousLibrary=structuredClone(settings.library),previousImages={...historyImages.images};
+          Object.assign(settings.library,transfer.library);
+          for(const key of Object.keys(historyImages.images))delete historyImages.images[key];
+          Object.assign(historyImages.images,transfer.images.images);
+          historyImagesDirty=true;
+          try{await save();}catch(reason){Object.assign(settings.library,previousLibrary);for(const key of Object.keys(historyImages.images))delete historyImages.images[key];Object.assign(historyImages.images,previousImages);historyImagesDirty=true;throw reason;}
+          return {count:transfer.count,folderName:transfer.folderName};
+        },usePrompt:async item=>{if(item.context){await restorePromptContext(item);return;}prompt=item.text;promptSaveError='';expectedReplayModel=undefined;restoredEditInstruction=undefined;if(restoredTemplate){restoredTemplate=undefined;activeTemplateId='';templateValues={};manualReferences=[];}await publish();},useHistory:restorePromptContext,useTemplate:async item=>{restoredTemplate=undefined;restoredEditInstruction=undefined;expectedReplayModel=undefined;activeTemplateId=item.id;templateValues={};await publish();},conversion:{model:selected?.label??'No model selected',available:!!selected&&canConvertTemplate(conversionProvider,selected.id)},convertTemplate:async(text,direction)=>{if(!selected?.id)throw new PluginError('MODEL_UNAVAILABLE','Choose a model before converting.');if(conversionProvider==='codex'?!sessions.codex:!credential)throw new PluginError('AUTHENTICATION','Connect this provider before converting.');return convertTemplate(api,{provider:conversionProvider,model:selected.id,baseUrl:settings.customBase,credential:conversionProvider,text,direction,codexSession:sessions.codex,onCodexSession:async session=>{sessions.codex=session;await saveOAuthSession('codex',session);}});}});return;}
       else if(event.id==='clearTemplate'){activeTemplateId='';restoredTemplate=undefined;templateValues={};}
       else if(event.id==='panelError'){error=String(event.value??'');}
       else if(event.id.startsWith('templateField:')){templateValues[event.id.slice(14)]=String(event.value??'');return;}

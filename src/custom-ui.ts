@@ -5,6 +5,7 @@ import penSvg from '../svg/pen.svg';
 import trashSvg from '../svg/trash.svg';
 import wandSvg from '../svg/wand-magic-sparkles.svg';
 import {EDIT_PROMPTS_FOLDER,isEditPrompt} from './edit-prompts';
+import type {TransferView} from './library-transfer';
 
 const esc=(s:unknown)=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const encodeTagPart=(value:string)=>value.replace(/\\/g,'\\\\').replace(/\|/g,'\\|').replace(/=>/g,'\\=>').replace(/:/g,'\\:').replace(/[{}]/g,brace=>'\\'+brace);
@@ -26,7 +27,7 @@ const templateFieldHelp=(open:boolean)=>String.raw`<section id="template-fields-
 const root=document.getElementById('app')!;
 const overlay=document.getElementById('overlay')!;
 type CollectionKind='prompts'|'templates';
-export interface CollectionActions {library:LibraryState;historyImages:Record<string,string>;save():Promise<void>;usePrompt(item:PromptItem):Promise<void>;useHistory(item:HistoryItem):Promise<void>;useTemplate(item:TemplateItem):Promise<void>;conversion:{model:string;available:boolean};convertTemplate(text:string,direction:'json'|'narrative'):Promise<string>;}
+export interface CollectionActions {library:LibraryState;historyImages:Record<string,string>;save():Promise<void>;exportCollection(view:TransferView,folderId:string):Promise<{count:number}|null>;importCollection(view:TransferView):Promise<{count:number;folderName:string|null}|null>;usePrompt(item:PromptItem):Promise<void>;useHistory(item:HistoryItem):Promise<void>;useTemplate(item:TemplateItem):Promise<void>;conversion:{model:string;available:boolean};convertTemplate(text:string,direction:'json'|'narrative'):Promise<string>;}
 export interface CustomPanel {api:PhotonApi;openCollection(kind:CollectionKind,actions:CollectionActions):Promise<void>;closeCollection():Promise<void>;}
 
 interface HostReply {value?:unknown;error?:string;}
@@ -141,7 +142,7 @@ function showCollection(kind:CollectionKind,actions:CollectionActions,closeColle
   type FieldDialog={kind:ChoiceKind;name:string;separator:string;choices:FieldOption[];start:number;end:number;editing:boolean;error?:string};
   let fieldDialog:FieldDialog|undefined,fieldDragging:string|undefined,selectedPill:HTMLElement|undefined,draggingPill:HTMLElement|undefined;
   type DeleteTarget={kind:'folder'|'card';id:string;expiresAt:number};
-  let folderEditor:string|undefined,armedDelete:DeleteTarget|undefined,deleteTimer:ReturnType<typeof setTimeout>|undefined,notice='';
+  let folderEditor:string|undefined,armedDelete:DeleteTarget|undefined,deleteTimer:ReturnType<typeof setTimeout>|undefined,notice='',transferStatus='';
   const deleteButton=(target:DeleteTarget)=>Array.from(overlay.querySelectorAll<HTMLButtonElement>(target.kind==='folder'?'[data-delete-folder]':'[data-delete]')).find(button=>(target.kind==='folder'?button.dataset.deleteFolder:button.dataset.delete)===target.id);
   const resetDelete=()=>{clearTimeout(deleteTimer);deleteTimer=undefined;if(!armedDelete)return;const button=deleteButton(armedDelete);button?.classList.remove('delete-armed');if(button){const name=armedDelete.kind==='folder'?actions.library.folders.find(item=>item.id===armedDelete?.id)?.name:undefined;button.title=name?'Delete folder':'Delete';button.setAttribute('aria-label',name?'Delete '+name:'Delete');button.removeAttribute('aria-pressed');}armedDelete=undefined;};
   const armDelete=(kind:DeleteTarget['kind'],id:string)=>{resetDelete();armedDelete={kind,id,expiresAt:Date.now()+2000};const button=deleteButton(armedDelete);button?.classList.add('delete-armed');if(button){button.title='Click again to delete';button.setAttribute('aria-label','Click again to delete');button.setAttribute('aria-pressed','true');}deleteTimer=setTimeout(resetDelete,2000);};
@@ -244,8 +245,8 @@ function showCollection(kind:CollectionKind,actions:CollectionActions,closeColle
   const render=(searchChanged=false,focusFilter=false)=>{
     const searchInput=overlay.querySelector<HTMLInputElement>('[data-collection-search]');
     const searchCaret=searchInput&&searchInput===document.activeElement?searchInput.selectionStart??searchInput.value.length:null;
-    const contentScroll=overlay.querySelector<HTMLElement>('.collection-content')?.scrollTop??0;
-    const folders=actions.library.folders.slice().sort((a,b)=>a.order-b.order);
+    const contentScroll=overlay.querySelector<HTMLElement>('.collection-content-scroll')?.scrollTop??0;
+    const folders=actions.library.folders.filter(item=>kind==='templates'||item.id!==EDIT_PROMPTS_FOLDER).sort((a,b)=>a.order-b.order);
     const source=tab==='history'?actions.library.history:list();
     const visible=source.filter(x=>folder===ROOT_FOLDER||x.folderId===folder).slice().sort((a,b)=>tab==='history'?b.order-a.order:a.order-b.order);
     const query=search.trim().toLocaleLowerCase();
@@ -258,13 +259,21 @@ function showCollection(kind:CollectionKind,actions:CollectionActions,closeColle
     const folderRows=folders.map(f=>folderEditor===f.id?folderInput(f.id,f.name):`<div class="folder-row"><button class="folder ${folder===f.id?'active':''}" data-folder="${esc(f.id)}">${esc(f.name)}</button>${f.id===EDIT_PROMPTS_FOLDER?'':`<button title="Rename folder" aria-label="Rename ${esc(f.name)}" data-rename-folder="${esc(f.id)}">${cardIcon(penSvg)}</button><button title="Delete folder" aria-label="Delete ${esc(f.name)}" data-delete-folder="${esc(f.id)}">${cardIcon(trashSvg)}</button>`}</div>`).join('');
     const searchField=`<label class="collection-search"><span class="sr-only">Filter ${kind==='prompts'?'prompts':'templates'}</span><input type="search" data-collection-search="true" value="${esc(search)}" placeholder="Filter ${kind==='prompts'?'Prompts':'Templates'}" autocomplete="off"></label>`;
     const toolbar=kind==='prompts'?`<div class="tabs"><button class="${tab==='saved'?'active':''}" data-tab="saved">Saved</button><button class="${tab==='history'?'active':''}" data-tab="history">History</button></div>${searchField}`:`<button class="add" data-add="true">＋ New Template</button>${searchField}<button type="button" class="template-help-toggle" data-template-tags="true" aria-controls="template-fields-help" aria-expanded="${templateHelpOpen}"><span class="glyph-icon" aria-hidden="true">&#x24D8;</span> Template Fields</button>`;
-    overlay.innerHTML=`<div class="modal-backdrop" data-close="true"></div><section class="collection-dialog" role="dialog" aria-modal="${editor?'false':'true'}" aria-label="${kind==='prompts'?'Prompt Library':'Templates'}"><header><span class="dialog-title">${kind==='prompts'?'Prompt Library':'Templates'}</span><button class="close" type="button" aria-label="Close" data-close="true">×</button></header>${notice?`<p class="dialog-notice" role="alert">${esc(notice)}</p>`:''}<div class="collection-body"><aside class="folders"><button class="folder ${folder===ROOT_FOLDER?'active':''}" data-folder="${ROOT_FOLDER}">All ${kind==='prompts'?'prompts':'templates'}</button>${folderRows}${folderEditor==='new'?folderInput('new',''):'<button class="new-folder" data-new-folder="true">＋ Folder</button>'}</aside><div class="collection-content"><div class="collection-toolbar">${toolbar}</div>${kind==='templates'?templateFieldHelp(templateHelpOpen):''}<div class="cards">${groups.length?groups.map(group=>{const key=group[0].stackId||group[0].id;return group.length>1?`<section class="stack" data-stack-drop="${esc(key)}">${query?`<div class="stack-title"><span>▤ ${group.length} versions</span></div>${group.map(i=>card(i,tab==='history')).join('')}`:`<button class="stack-title" data-stack="${esc(key)}"><span>▤ ${group.length} versions</span><span>${expanded.has(key)?'−':'＋'}</span></button>${card(group[0],tab==='history')}${expanded.has(key)?group.slice(1).map(i=>card(i,tab==='history')).join(''):''}`}</section>`:card(group[0],tab==='history');}).join(''):`<p class="empty">${query?'No matches.':tab==='history'?'No prompt history.':kind==='prompts'?'No saved prompts.':'No templates.'}</p>`}<div class="unstack-drop" data-unstack="true">Drop here to separate</div></div></div></div></section>${editorHtml()}`;
+    overlay.innerHTML=`<div class="modal-backdrop" data-close="true"></div><section class="collection-dialog" role="dialog" aria-modal="${editor?'false':'true'}" aria-label="${kind==='prompts'?'Prompt Library':'Templates'}"><header><span class="dialog-title">${kind==='prompts'?'Prompt Library':'Templates'}</span><button class="close" type="button" aria-label="Close" data-close="true">×</button></header>${notice?`<p class="dialog-notice" role="alert">${esc(notice)}</p>`:''}<div class="collection-body"><aside class="folders"><button class="folder ${folder===ROOT_FOLDER?'active':''}" data-folder="${ROOT_FOLDER}">All ${kind==='prompts'?'prompts':'templates'}</button>${folderRows}${folderEditor==='new'?folderInput('new',''):'<button class="new-folder" data-new-folder="true">＋ Folder</button>'}</aside><div class="collection-content"><div class="collection-content-scroll"><div class="collection-toolbar">${toolbar}</div>${kind==='templates'?templateFieldHelp(templateHelpOpen):''}<div class="cards">${groups.length?groups.map(group=>{const key=group[0].stackId||group[0].id;return group.length>1?`<section class="stack" data-stack-drop="${esc(key)}">${query?`<div class="stack-title"><span>▤ ${group.length} versions</span></div>${group.map(i=>card(i,tab==='history')).join('')}`:`<button class="stack-title" data-stack="${esc(key)}"><span>▤ ${group.length} versions</span><span>${expanded.has(key)?'−':'＋'}</span></button>${card(group[0],tab==='history')}${expanded.has(key)?group.slice(1).map(i=>card(i,tab==='history')).join(''):''}`}</section>`:card(group[0],tab==='history');}).join(''):`<p class="empty">${query?'No matches.':tab==='history'?'No prompt history.':kind==='prompts'?'No saved prompts.':'No templates.'}</p>`}<div class="unstack-drop" data-unstack="true">Drop here to separate</div></div></div><footer class="collection-footer"><span class="collection-transfer-status" role="status">${esc(transferStatus)}</span><div class="collection-footer-actions"><button type="button" data-export-collection="true">Export</button><button type="button" data-import-collection="true">Import</button></div></footer></div></div></section>${editorHtml()}`;
+    for(const summary of Array.from(overlay.querySelectorAll<HTMLElement>('.card .history-summary'))){
+      const details=summary.parentElement?.querySelector<HTMLElement>(':scope > .history-details');
+      const first=summary.querySelector('span');
+      if(!details||!first)continue;
+      const row=document.createElement('div');row.className='history-meta-row';
+      summary.before(row);row.append(first,details);
+      if(!summary.childElementCount)summary.remove();
+    }
     overlay.querySelector<HTMLElement>('.collection-dialog')!.inert=!!editor;
     if(fieldDialog)overlay.querySelector<HTMLElement>('.item-editor')!.inert=true;
     if(armedDelete){const button=deleteButton(armedDelete);button?.classList.add('delete-armed');if(button){button.title='Click again to delete';button.setAttribute('aria-label','Click again to delete');button.setAttribute('aria-pressed','true');}}
     if(!searchChanged&&!matchMedia('(prefers-reduced-motion: reduce)').matches)for(const el of Array.from(overlay.querySelectorAll<HTMLElement>('[data-card]'))){const before=previous.get(el.dataset.card!);if(!before)continue;const after=el.getBoundingClientRect(),dx=before.left-after.left,dy=before.top-after.top;if(dx||dy)el.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:'translate(0,0)'}],{duration:230,easing:'cubic-bezier(.2,.8,.2,1)'});}
     overlay.querySelector<HTMLElement>('.collection-dialog')?.setAttribute('tabindex','-1');
-    overlay.querySelector<HTMLElement>('.collection-content')!.scrollTop=searchChanged?0:contentScroll;
+    overlay.querySelector<HTMLElement>('.collection-content-scroll')!.scrollTop=searchChanged?0:contentScroll;
     if(fieldDialog)overlay.querySelector<HTMLInputElement>('[data-field-name]')?.focus();
     else if((searchCaret!==null||focusFilter)&&!editor){const replacement=overlay.querySelector<HTMLInputElement>('[data-collection-search]');replacement?.focus();if(focusFilter)replacement?.select();else if(searchCaret!==null)replacement?.setSelectionRange(searchCaret,searchCaret);}else (overlay.querySelector<HTMLElement>(editor?'[data-editor-name], [data-editor-text]':'[data-folder-name]')??overlay.querySelector<HTMLElement>(editor?'.item-editor':'.collection-dialog'))?.focus();
   };
@@ -296,12 +305,22 @@ function showCollection(kind:CollectionKind,actions:CollectionActions,closeColle
       }
       return;
     }
-    const button=target.closest<HTMLElement>('[data-close],[data-folder],[data-tab],[data-add],[data-template-tags],[data-stack],[data-edit],[data-delete],[data-use],[data-remove-ref],[data-add-ref-button],[data-new-folder],[data-rename-folder],[data-delete-folder],[data-save-folder],[data-cancel-folder]');
+    const button=target.closest<HTMLElement>('[data-close],[data-folder],[data-tab],[data-add],[data-template-tags],[data-stack],[data-edit],[data-delete],[data-use],[data-remove-ref],[data-add-ref-button],[data-new-folder],[data-rename-folder],[data-delete-folder],[data-save-folder],[data-cancel-folder],[data-export-collection],[data-import-collection]');
     const repeatedDelete=!!armedDelete&&!!button&&(armedDelete.kind==='card'?button.dataset.delete===armedDelete.id:button.dataset.deleteFolder===armedDelete.id)&&Date.now()<armedDelete.expiresAt;
     if(armedDelete&&!repeatedDelete)resetDelete();
     if(!button)return;
     if(button.dataset.close){hide();return;}
     if(button.dataset.templateTags){setTemplateHelp(!templateHelpOpen);return;}
+    if(button.hasAttribute('data-export-collection')){
+      try{const result=await actions.exportCollection(kind==='templates'?'templates':tab,folder);if(result){notice='';transferStatus=`Exported ${result.count} ${kind==='templates'?'template':'prompt'}${result.count===1?'':'s'}.`;render();}}
+      catch(reason){transferStatus='';notice=reason instanceof Error?reason.message:String(reason);render();}
+      return;
+    }
+    if(button.hasAttribute('data-import-collection')){
+      try{const result=await actions.importCollection(kind==='templates'?'templates':tab);if(result){notice='';transferStatus=`Imported ${result.count} ${kind==='templates'?'template':'prompt'}${result.count===1?'':'s'}.`;if(result.folderName)folder=actions.library.folders.find(item=>item.name===result.folderName&&(kind==='templates'||item.id!==EDIT_PROMPTS_FOLDER))?.id??folder;render();}}
+      catch(reason){transferStatus='';notice=reason instanceof Error?reason.message:String(reason);render();}
+      return;
+    }
     if(button.dataset.cancelFolder){folderEditor=undefined;notice='';render();return;}
     if(button.dataset.saveFolder){const id=button.dataset.saveFolder;if(id===EDIT_PROMPTS_FOLDER)return;const input=overlay.querySelector<HTMLInputElement>(`[data-folder-name="${id}"]`);const name=input?.value.trim();if(!name){notice='Enter a folder name.';render();return;}if(id==='new'){const next=newId();actions.library.folders.push({id:next,name,order:Date.now()});folder=next;}else{const found=actions.library.folders.find(x=>x.id===id);if(found)found.name=name;}folderEditor=undefined;await commit();return;}
     if(button.dataset.folder){folder=button.dataset.folder;render();return;}

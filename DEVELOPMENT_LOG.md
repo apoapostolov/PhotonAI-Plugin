@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Collection transfer and card metadata layout (2026-10-07)
+
+Saved, History, and Templates now have Export and Import in a footer beneath
+the scrollable card area. All exports the active tab; a selected folder
+exports only that folder. JSON carries each card's folder name, stacks,
+order, prompt context, and image references. Import uses the matching tab,
+recreates missing folders, assigns new card and image keys, and checks the
+destination's storage budget before saving. Reimporting adds another copy;
+the fixed Edit Prompts instructions update in place. A text filter does not
+change export scope. The edit action and Request details now share a line on
+Saved and History cards. The fixed Edit Prompts folder appears only in
+Templates, where its three Edit instructions can be changed. This uses the
+existing Photon file picker and
+private config bridge, so no new ASAR patch is needed. Live cross-install
+transfer has not yet been checked.
+
 ### Edit action hover hints (2026-10-07)
 
 Add, Change, and Replace in the Edit segmented control now show short hover
