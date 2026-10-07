@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Edit action hover hints (2026-10-07)
+
+Add, Change, and Replace in the Edit segmented control now show short hover
+hints describing what each action changes in the selection. The same text is
+available to assistive technology. This is a plugin UI change and needs no
+ASAR patch.
+
 ### Provider-aware Edit preservation (2026-10-07)
 
 The Add, Change, and Replace defaults now describe the source image as the
