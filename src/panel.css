@@ -80,6 +80,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .template-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .template-heading h3 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .result-image { width: 100%; height: auto; border: 1px solid var(--ph-stroke); }
+.result-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.result-actions .action { min-width: 0; padding-inline: 3px; white-space: nowrap; font-size: 11px; }
 .prompt-actions { display: flex; gap: 6px; margin-top: -5px; }
 .prompt-actions .action { flex: 1; }
 .template-remove { display: grid; place-items: center; width: 23px; height: 23px; flex: none; padding: 0; border: 0; background: none; color: var(--ph-muted); }

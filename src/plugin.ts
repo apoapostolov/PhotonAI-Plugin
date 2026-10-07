@@ -99,7 +99,15 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
     if(mode==='generate')controls.push({type:'checkbox',id:'insert',label:'Insert into the current document',value:insert,disabled:busy});
     if(error&&!oauthId)controls.push({type:'text',tone:'danger',text:error});
     controls.push({type:'button',id:'run',tone:'primary',label:busy?'Working…':result?'Regenerate':mode==='generate'?'Generate Image':mode==='remove'?'Remove Selection':'Generate Edit',disabled:busy||settings.provider==='midjourney'||!signedIn||!m?.id||(mode==='generate'?!m?.generate:!m?.edit)||mode!=='generate'&&!hasSelection});
-    if(result)controls.push({type:'group',label:'Result preview',children:[{type:'image',label:result.name,src:'data:image/png;base64,'+base64(result.bytes)},{type:'text',text:'Apply creates a new layer with one undo step. Your original layers stay editable.'},{type:'button',id:'apply',tone:'primary',label:'Apply',disabled:busy},{type:'button',id:'discard',label:'Discard preview',disabled:busy},{type:'button',id:'export',label:'Save result as PNG…',disabled:busy}]});
+    if(result)controls.push({type:'group',label:'Result preview',children:[
+      {type:'image',label:result.name,src:'data:image/png;base64,'+base64(result.bytes)},
+      {type:'group',id:'resultActions',children:[
+        {type:'button',id:'apply',tone:'primary',label:'Apply',disabled:busy},
+        {type:'button',id:'discard',label:'Discard',disabled:busy},
+        {type:'button',id:'export',label:'Save as PNG',disabled:busy}
+      ]},
+      {type:'text',text:'Apply creates a new layer with one undo step. Your original layers stay editable.'}
+    ]});
     await api.ui.render('ai',{title:'AI',controls} satisfies PanelModel);
   };
   const run=async()=>{

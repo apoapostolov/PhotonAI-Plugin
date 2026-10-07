@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Result actions (2026-10-07)
+
+The generated result preview now places Apply, Discard, and Save as PNG in one
+row directly below the image. The Apply explanation follows the row. This is a
+plugin panel layout change and needs no additional ASAR patch.
+
 ### Edit actions and selection help (2026-10-07)
 
 The visible Fill tab is now Edit. Its Add, Change, and Replace segmented

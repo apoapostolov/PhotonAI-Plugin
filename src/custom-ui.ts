@@ -57,6 +57,7 @@ function controlHtml(c:Control):string{
   switch(c.type){
     case 'group':
       if(c.id==='promptActions')return `<div class="prompt-actions">${(c.children??[]).map(controlHtml).join('')}</div>`;
+      if(c.id==='resultActions')return `<div class="result-actions" role="group" aria-label="Result actions">${(c.children??[]).map(controlHtml).join('')}</div>`;
       if(c.id==='templateSurface')return `<section class="template-surface"><div class="template-heading"><h3>${label}</h3><button type="button" class="template-remove" data-control="clearTemplate" title="Remove template" aria-label="Remove template">${cardIcon(trashSvg)}</button></div>${(c.children??[]).map(controlHtml).join('')}</section>`;
       if(c.id?.startsWith('templateOptions:')){
         if(c.id.startsWith('templateOptions:multiselect:')){
