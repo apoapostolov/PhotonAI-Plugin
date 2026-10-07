@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Card details header (2026-10-07)
+
+The Saved and History card disclosure is now labeled Details. Its header
+stays right aligned beside the edit action when expanded, so the same header
+closes it without moving to another line. This is plugin UI only and needs
+no ASAR patch.
+
 ### Collection transfer and card metadata layout (2026-10-07)
 
 Saved, History, and Templates now have Export and Import in a footer beneath

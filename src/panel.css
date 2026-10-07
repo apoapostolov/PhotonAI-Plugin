@@ -178,10 +178,12 @@ body.collection-modal .collection-dialog { width: 100vw; height: 100vh; }
 .card p { max-height: 150px; margin: 4px 0 8px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; }
 .history-summary { display: flex; flex-wrap: wrap; gap: 3px 7px; margin: 0 0 6px; color: var(--ph-muted); font-size: 11px; }
 .history-summary span { overflow-wrap: anywhere; }
-.history-meta-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 5px; margin-bottom: 6px; color: var(--ph-muted); font-size: 11px; }
+.history-meta-row { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: baseline; gap: 5px; margin-bottom: 6px; color: var(--ph-muted); font-size: 11px; }
 .history-meta-row > span { min-width: 0; overflow-wrap: anywhere; }
-.history-meta-row .history-details { flex: none; margin: 0; }
-.history-meta-row .history-details[open] { flex: 0 0 100%; }
+.history-meta-row .history-details { display: contents; }
+.history-meta-row .history-details summary { grid-column: 2; grid-row: 1; justify-self: end; }
+.history-meta-row .history-details dl { grid-column: 1 / -1; grid-row: 2; }
+.history-meta-row .history-details:not([open]) dl { display: none; }
 .history-reference-list { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 6px; }
 .history-missing-reference { color: var(--ph-danger); font-size: 11px; }
 .history-details { margin-bottom: 6px; color: var(--ph-muted); font-size: 11px; }
