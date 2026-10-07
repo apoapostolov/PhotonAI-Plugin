@@ -1,5 +1,5 @@
 import type {PhotonApi,PanelModel,Control,UiEvent} from '@photon/plugin-sdk';
-import {ROOT_FOLDER,newId,promptStacks,referenceBytes,REFERENCE_BUDGET,templateTags,type LibraryState,type PromptItem,type TemplateItem,type ReferenceImage} from './library';
+import {ROOT_FOLDER,newId,promptStacks,referenceBytes,REFERENCE_BUDGET,templateFields,templateTags,type HistoryItem,type LibraryState,type PromptItem,type TemplateItem,type ReferenceImage} from './library';
 import {pillKind,templatePillsHtml,richText,richSelection,richOffsetBefore,richOffsetAtPoint,setRichSelection,type PillKind} from './template-rich';
 import penSvg from '../svg/pen.svg';
 import trashSvg from '../svg/trash.svg';
@@ -26,7 +26,7 @@ const templateFieldHelp=(open:boolean)=>String.raw`<section id="template-fields-
 const root=document.getElementById('app')!;
 const overlay=document.getElementById('overlay')!;
 type CollectionKind='prompts'|'templates';
-export interface CollectionActions {library:LibraryState;save():Promise<void>;usePrompt(text:string):Promise<void>;useTemplate(item:TemplateItem):Promise<void>;conversion:{model:string;available:boolean};convertTemplate(text:string,direction:'json'|'narrative'):Promise<string>;}
+export interface CollectionActions {library:LibraryState;historyImages:Record<string,string>;save():Promise<void>;usePrompt(text:string):Promise<void>;useHistory(item:HistoryItem):Promise<void>;useTemplate(item:TemplateItem):Promise<void>;conversion:{model:string;available:boolean};convertTemplate(text:string,direction:'json'|'narrative'):Promise<string>;}
 export interface CustomPanel {api:PhotonApi;openCollection(kind:CollectionKind,actions:CollectionActions):Promise<void>;closeCollection():Promise<void>;}
 
 interface HostReply {value?:unknown;error?:string;}
@@ -88,7 +88,8 @@ export async function createCustomPanel(base:PhotonApi):Promise<CustomPanel>{
   const theme=await bridge().request('sdk.ui.theme',{});
   if(theme.error)throw new Error(theme.error);
   applyPhotonTheme(theme.value);
-  base.events.subscribe(event=>{if(event.type==='theme')applyPhotonTheme(event.theme);else if(String(event.type)==='customDialogClosed'){overlay.hidden=true;overlay.replaceChildren();root.inert=false;document.body.classList.remove('collection-modal');}});
+  let disposeCollection:(()=>void)|undefined;
+  base.events.subscribe(event=>{if(event.type==='theme')applyPhotonTheme(event.theme);else if(String(event.type)==='customDialogClosed'){disposeCollection?.();disposeCollection=undefined;overlay.hidden=true;overlay.replaceChildren();root.inert=false;document.body.classList.remove('collection-modal');}});
   let handler:((event:UiEvent)=>void|Promise<void>)|undefined;
   const emit=(id:string,value?:string|number|boolean)=>{void handler?.({id,value,panel:'ai'});};
   root.addEventListener('input',event=>{const el=event.target as HTMLInputElement|HTMLTextAreaElement;if(el.dataset.control==='prompt')emit('prompt',el.value);});
@@ -104,6 +105,7 @@ export async function createCustomPanel(base:PhotonApi):Promise<CustomPanel>{
   const closeCollection=async()=>{
     const reply=await editorDialog(false);
     if(reply?.error)throw new Error(reply.error);
+    disposeCollection?.();disposeCollection=undefined;
     overlay.hidden=true;overlay.replaceChildren();root.inert=false;document.body.classList.remove('collection-modal');
   };
   return {api,async openCollection(kind,actions){
@@ -111,15 +113,22 @@ export async function createCustomPanel(base:PhotonApi):Promise<CustomPanel>{
       const reply=await editorDialog(true);
       if(reply?.error)throw new Error(reply.error);
       document.body.classList.add('collection-modal');
-      showCollection(kind,actions,closeCollection);
+      disposeCollection=showCollection(kind,actions,closeCollection);
       const ready=await bridge().request('sdk.ui.customDialog',{ready:true});
       if(ready?.error)throw new Error(ready.error);
-    }catch(error){overlay.hidden=true;overlay.replaceChildren();root.inert=false;document.body.classList.remove('collection-modal');await editorDialog(false).catch(()=>{});throw error;}
+    }catch(error){disposeCollection?.();disposeCollection=undefined;overlay.hidden=true;overlay.replaceChildren();root.inert=false;document.body.classList.remove('collection-modal');await editorDialog(false).catch(()=>{});throw error;}
   },closeCollection};
 }
 
-function showCollection(kind:CollectionKind,actions:CollectionActions,closeCollection:()=>Promise<void>):void{
+function showCollection(kind:CollectionKind,actions:CollectionActions,closeCollection:()=>Promise<void>):()=>void{
   let folder=ROOT_FOLDER,tab:'saved'|'history'='saved',expanded=new Set<string>(),dragging:string|undefined,templateHelpOpen=false,search='';
+  const historyUrls=new Map<string,string>();
+  const historyImageUrl=(key:string)=>{
+    const cached=historyUrls.get(key);if(cached)return cached;
+    const dataUrl=actions.historyImages[key],match=/^data:(image\/(?:png|jpeg|webp));base64,(.*)$/.exec(dataUrl??'');if(!match)return;
+    const binary=atob(match[2]),bytes=Uint8Array.from(binary,char=>char.charCodeAt(0));
+    const url=URL.createObjectURL(new Blob([bytes],{type:match[1]}));historyUrls.set(key,url);return url;
+  };
   let editor:{id?:string;kind:'prompt'|'template';folderId:string;text:string;name:string;transparent:boolean;newItem:boolean;error?:string;converting?:boolean}|undefined;
   type ChoiceKind=PillKind;
   type FieldOption={id:string;label:string;content:string};
@@ -213,9 +222,16 @@ function showCollection(kind:CollectionKind,actions:CollectionActions,closeColle
     const template=kind==='templates'&&!history?item as TemplateItem:undefined;
     const modePrompt=!!template&&isEditPrompt(item.id);
     const images=template?.references??[];
+    const saved=history?(item as HistoryItem).context:undefined;
+    const fieldDetails=saved?.template?templateFields(saved.template.text).map(field=>{
+      const raw=saved.template!.values[field.name]??'';
+      const value=field.kind==='check'?raw==='true'?'On':'Off':field.kind==='radio'||field.kind==='select'?field.choices?.[Number(raw||0)]?.label??raw:field.kind==='multi'||field.kind==='multiselect'?raw.split(',').filter(Boolean).map(index=>field.choices?.[Number(index)]?.label).filter(Boolean).join(', '):raw;
+      return `<div><dt>${esc(field.name)}</dt><dd>${esc(value||'—')}</dd></div>`;
+    }).join(''):'';
+    const historyDetails=saved?`<div class="history-summary"><span>${saved.mode==='fill'?`Edit · ${esc(saved.editAction?saved.editAction[0].toUpperCase()+saved.editAction.slice(1):'Add')}`:saved.mode==='remove'?'Remove':'Generate'}</span>${saved.template?`<span>Template · ${esc(saved.template.name)}</span>`:''}${saved.references.length?`<span>${saved.references.length} reference${saved.references.length===1?'':'s'}</span>`:''}</div>${saved.references.length?`<div class="history-reference-list">${saved.references.map(ref=>{const url=historyImageUrl(ref.key);return url?`<span class="card-reference" title="${esc(ref.name)} · ${ref.source}"><img class="card-reference-thumb" src="${esc(url)}" alt="${esc(ref.name)}"><span class="card-reference-preview"><img src="${esc(url)}" alt=""></span></span>`:`<span class="history-missing-reference" title="${esc(ref.name)}">${esc(ref.name)} unavailable</span>`;}).join('')}</div>`:''}<details class="history-details"><summary>Request details</summary><dl><div><dt>Provider</dt><dd>${esc(saved.provider??'Unknown')}</dd></div><div><dt>Model</dt><dd>${esc(saved.model??'Unknown')}</dd></div>${saved.size?`<div><dt>Size</dt><dd>${esc(saved.size)}</dd></div>`:''}${saved.quality?`<div><dt>Quality</dt><dd>${esc(saved.quality)}</dd></div>`:''}${saved.insert?'<div><dt>Output</dt><dd>Insert in document</dd></div>':''}${saved.editInstruction?`<div><dt>Edit instruction</dt><dd>${esc(saved.editInstruction)}</dd></div>`:''}${saved.template?`<div><dt>Template text</dt><dd>${esc(saved.template.text)}</dd></div>${saved.template.transparentBackground?'<div><dt>Background</dt><dd>Transparent</dd></div>':''}${fieldDetails}`:''}${saved.references.map(ref=>`<div><dt>${ref.source==='template'?'Template reference':'Reference'}</dt><dd>${esc(ref.name)}</dd></div>`).join('')}</dl></details>`:history&&(item as HistoryItem).templateName?`<div class="history-summary"><span>Legacy · ${esc((item as HistoryItem).templateName)}</span></div>`:'';
     return `<article class="card" draggable="${!modePrompt}" data-card="${esc(item.id)}">
       <div class="card-top">${modePrompt?'':`<span class="drag-handle" title="Drag to reorder" aria-hidden="true">⋮⋮</span>`}${template?`<strong>${esc(template.name)}</strong>`:`<span class="card-date">${new Date(item.updatedAt).toLocaleString()}</span>`}</div>
-      <p>${template&&!modePrompt?templatePillsHtml(item.text):esc(item.text)}</p>${template?.transparentBackground?'<small>Transparent image</small>':''}
+      <p>${template&&!modePrompt?templatePillsHtml(item.text):esc(item.text)}</p>${template?.transparentBackground?'<small>Transparent image</small>':''}${historyDetails}
       <div class="card-footer">${template&&!modePrompt?`<div class="card-footer-left"><button type="button" class="add-reference" data-add-ref-button="${esc(item.id)}">＋ Reference</button><input type="file" accept="image/png,image/jpeg,image/webp" data-add-ref="${esc(item.id)}" hidden>${images.map(r=>`<span class="card-reference" title="${esc(r.name)}"><img class="card-reference-thumb" src="${esc(r.dataUrl)}" alt="${esc(r.name)}"><span class="card-reference-preview"><img src="${esc(r.dataUrl)}" alt=""></span><button type="button" aria-label="Remove ${esc(r.name)}" data-remove-ref="${esc(item.id)}" data-ref="${esc(r.id)}"></button></span>`).join('')}</div>`:'<div></div>'}<div class="card-actions"><button type="button" title="Edit" aria-label="Edit" data-edit="${esc(item.id)}">${cardIcon(penSvg)}</button>${modePrompt?'':`<button type="button" title="Delete" aria-label="Delete" data-delete="${esc(item.id)}">${cardIcon(trashSvg)}</button><button type="button" class="use" title="Use" aria-label="Use" data-use="${esc(item.id)}">${cardIcon(wandSvg)}</button>`}</div></div>
     </article>`;
   };
@@ -227,7 +243,7 @@ function showCollection(kind:CollectionKind,actions:CollectionActions,closeColle
     const source=tab==='history'?actions.library.history:list();
     const visible=source.filter(x=>folder===ROOT_FOLDER||x.folderId===folder).slice().sort((a,b)=>tab==='history'?b.order-a.order:a.order-b.order);
     const query=search.trim().toLocaleLowerCase();
-    const matches=(item:PromptItem|TemplateItem)=>[item.text,'name'in item?item.name:new Date(item.updatedAt).toLocaleString()].some(value=>value.toLocaleLowerCase().includes(query));
+    const matches=(item:PromptItem|TemplateItem)=>{const context=(item as HistoryItem).context;return [item.text,'name'in item?item.name:new Date(item.updatedAt).toLocaleString(),...(context?[context.template?.name??'',context.editAction??'',context.provider??'',context.model??'',...context.references.map(ref=>ref.name)]:[])].some(value=>value.toLocaleLowerCase().includes(query));};
     const groups=promptStacks(visible).filter(group=>!query||group.some(matches)||group.length>1&&`${group.length} versions`.includes(query));
     const previous=new Map(Array.from(overlay.querySelectorAll<HTMLElement>('[data-card]')).map(el=>[el.dataset.card!,el.getBoundingClientRect()]));
     root.inert=true;
@@ -294,7 +310,11 @@ function showCollection(kind:CollectionKind,actions:CollectionActions,closeColle
     if(button.dataset.edit){openEditor(item);return;}
     if(button.dataset.delete){if(isEditPrompt(id))return;if(!repeatedDelete){armDelete('card',id);return;}resetDelete();for(const key of ['prompts','history','templates'] as const)actions.library[key]=actions.library[key].filter(x=>x.id!==id) as never;await commit();return;}
     if(button.dataset.removeRef&&'references'in item){item.references=(item as TemplateItem).references.filter(r=>r.id!==button.dataset.ref);await commit();return;}
-    if(button.dataset.use){if(isEditPrompt(id))return;if('name'in item)await actions.useTemplate(item as TemplateItem);else await actions.usePrompt(item.text);hide();}
+    if(button.dataset.use){
+      if(isEditPrompt(id))return;
+      try{if('name'in item)await actions.useTemplate(item as TemplateItem);else if(tab==='history')await actions.useHistory(item as HistoryItem);else await actions.usePrompt(item.text);hide();}
+      catch(reason){notice=reason instanceof Error?reason.message:String(reason);render();}
+    }
   };
   overlay.onchange=async e=>{const input=e.target as HTMLInputElement;if(!input.dataset.addRef||!input.files?.[0])return;const item=current(input.dataset.addRef) as TemplateItem|undefined;if(!item||!('references'in item))return;try{const image=await smallImage(input.files[0]);if(referenceBytes(actions.library)+image.dataUrl.length>REFERENCE_BUDGET)throw Error('Reference storage is full. Remove an image before adding another.');item.references.push(image);item.updatedAt=Date.now();await commit();}catch(error){notice=error instanceof Error?error.message:String(error);render();}};
   overlay.onmousedown=e=>{if(editor&&!fieldDialog&&(e.target as Element).closest('[data-markdown],[data-insert-tag]'))e.preventDefault();};
@@ -353,6 +373,7 @@ function showCollection(kind:CollectionKind,actions:CollectionActions,closeColle
   overlay.ondragend=()=>{draggingPill=undefined;if(fieldDialog){fieldDragging=undefined;overlay.querySelectorAll('.field-option').forEach(el=>el.classList.remove('dragging','drop-before','drop-after'));return;}dragging=undefined;overlay.classList.remove('dragging-stack');overlay.querySelectorAll('.dragging').forEach(x=>x.classList.remove('dragging'));};
   overlay.onkeydown=e=>{const input=e.target as HTMLInputElement;if(fieldDialog){if(e.key==='Escape'){e.preventDefault();closeFieldDialog();}else if(e.key==='Tab'){const focusable=Array.from(overlay.querySelectorAll<HTMLElement>('.field-config-dialog button,.field-config-dialog input')).filter(el=>!el.hasAttribute('disabled'));const first=focusable[0],last=focusable[focusable.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}}else if(e.altKey&&(e.key==='ArrowUp'||e.key==='ArrowDown')&&input.dataset.fieldDrag){e.preventDefault();readFieldInputs();const id=input.dataset.fieldDrag,index=fieldDialog.choices.findIndex(choice=>choice.id===id),next=index+(e.key==='ArrowUp'?-1:1);if(index>=0&&next>=0&&next<fieldDialog.choices.length){const [choice]=fieldDialog.choices.splice(index,1);fieldDialog.choices.splice(next,0,choice);refreshFieldDialog();Array.from(overlay.querySelectorAll<HTMLElement>('[data-field-drag]')).find(el=>el.dataset.fieldDrag===id)?.focus();}}return;}if(editor){if(e.key==='Escape'){e.preventDefault();editor=undefined;render();}else if(e.key==='Tab'){const focusable=Array.from(overlay.querySelectorAll<HTMLElement>('.item-editor button,.item-editor input,.item-editor textarea')).filter(el=>!el.hasAttribute('disabled'));const first=focusable[0],last=focusable[focusable.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}}return;}if(e.key==='Enter'&&input.dataset.folderName){e.preventDefault();overlay.querySelector<HTMLButtonElement>(`[data-save-folder="${input.dataset.folderName}"]`)?.click();}else if(e.key==='Escape'){e.preventDefault();if(input.dataset.collectionSearch&&search){search='';render(true);}else if(armedDelete)resetDelete();else if(folderEditor){folderEditor=undefined;render();}else if(templateHelpOpen)setTemplateHelp(false);else hide();}};
   render(false,true);
+  return ()=>{for(const url of historyUrls.values())URL.revokeObjectURL(url);historyUrls.clear();};
 }
 
 async function smallImage(file:File):Promise<ReferenceImage>{

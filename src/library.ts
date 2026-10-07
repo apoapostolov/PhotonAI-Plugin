@@ -1,7 +1,14 @@
 export interface Folder {id:string;name:string;order:number;}
 export interface ReferenceImage {id:string;name:string;dataUrl:string;}
 export interface PromptItem {id:string;folderId:string;text:string;order:number;createdAt:number;updatedAt:number;stackId?:string|null;}
-export interface HistoryItem extends PromptItem {templateName?:string;}
+export interface HistoryReference {id:string;name:string;key:string;source:'template'|'manual';}
+export interface HistoryTemplate {id:string;name:string;text:string;transparentBackground:boolean;values:Record<string,string>;}
+export interface HistoryContext {
+  mode:'generate'|'remove'|'fill';editAction?:'add'|'change'|'replace';editInstruction?:string;
+  provider?:string;model?:string;size?:string;quality?:string;insert?:boolean;
+  template?:HistoryTemplate;references:HistoryReference[];
+}
+export interface HistoryItem extends PromptItem {templateName?:string;context?:HistoryContext;}
 export interface TemplateItem extends PromptItem {name:string;references:ReferenceImage[];transparentBackground?:boolean;}
 export interface LibraryState {folders:Folder[];prompts:PromptItem[];history:HistoryItem[];templates:TemplateItem[];templateSeedVersion:number;templateSyntaxVersion:number;}
 export type TemplateFieldKind='text'|'select'|'radio'|'multi'|'multiselect'|'check';
@@ -17,11 +24,21 @@ export function cleanLibrary(value:unknown):LibraryState{
   const folders=Array.isArray(source.folders)?source.folders.filter(f=>f&&typeof f.id==='string'&&typeof f.name==='string').slice(0,100):[];
   const stackId=(item:PromptItem)=>item.stackId===null||typeof item.stackId==='string'&&item.stackId.length<=100?item.stackId:undefined;
   const prompts=Array.isArray(source.prompts)?source.prompts.filter(p=>p&&typeof p.id==='string'&&typeof p.text==='string').slice(0,2000).map(p=>({...p,stackId:stackId(p)})):[];
-  const history=Array.isArray(source.history)?source.history.filter(p=>p&&typeof p.id==='string'&&typeof p.text==='string').slice(-2000).map(p=>({...p,stackId:stackId(p)})):[];
+  const history=Array.isArray(source.history)?source.history.filter(p=>p&&typeof p.id==='string'&&typeof p.text==='string').slice(-2000).map(p=>({...p,stackId:stackId(p),context:cleanHistoryContext(p.context)})):[];
   const templates=Array.isArray(source.templates)?source.templates.filter(t=>t&&typeof t.id==='string'&&typeof t.text==='string'&&typeof t.name==='string').slice(0,510).map(t=>({...t,stackId:stackId(t),transparentBackground:t.transparentBackground===true,references:Array.isArray(t.references)?t.references.filter(r=>r&&typeof r.dataUrl==='string'&&/^data:image\/(png|jpeg|webp);base64,/.test(r.dataUrl)).slice(0,8):[]})):[];
   const templateSeedVersion=typeof source.templateSeedVersion==='number'&&Number.isInteger(source.templateSeedVersion)&&source.templateSeedVersion>=0?source.templateSeedVersion:0;
   const templateSyntaxVersion=typeof source.templateSyntaxVersion==='number'&&Number.isInteger(source.templateSyntaxVersion)&&source.templateSyntaxVersion>=0?source.templateSyntaxVersion:1;
   return {folders,prompts,history,templates,templateSeedVersion,templateSyntaxVersion};
+}
+function cleanHistoryContext(value:unknown):HistoryContext|undefined{
+  if(!value||typeof value!=='object')return;
+  const item=value as Partial<HistoryContext>;
+  if(!['generate','remove','fill'].includes(String(item.mode)))return;
+  const template=item.template&&typeof item.template==='object'&&typeof item.template.name==='string'&&typeof item.template.text==='string'
+    ?{id:typeof item.template.id==='string'?item.template.id:'',name:item.template.name,text:item.template.text,transparentBackground:item.template.transparentBackground===true,values:Object.fromEntries(Object.entries(item.template.values??{}).filter(([key,entry])=>typeof key==='string'&&typeof entry==='string')) as Record<string,string>}
+    :undefined;
+  const references=Array.isArray(item.references)?item.references.filter(ref=>ref&&typeof ref.id==='string'&&typeof ref.name==='string'&&typeof ref.key==='string'&&(ref.source==='template'||ref.source==='manual')):[];
+  return {mode:item.mode!,editAction:['add','change','replace'].includes(String(item.editAction))?item.editAction:undefined,editInstruction:typeof item.editInstruction==='string'?item.editInstruction:undefined,provider:typeof item.provider==='string'?item.provider:undefined,model:typeof item.model==='string'?item.model:undefined,size:typeof item.size==='string'?item.size:undefined,quality:typeof item.quality==='string'?item.quality:undefined,insert:item.insert===true,template,references};
 }
 function delimiterAt(source:string,delimiter:string):number{
   for(let i=0;i<=source.length-delimiter.length;i++){
@@ -143,8 +160,9 @@ export function promptStacks<T extends {id:string;text:string;updatedAt:number;s
     if(stack)stack.push(item);else stacks.push([item]);
   }return stacks;
 }
-export function recordPrompt(library:LibraryState,text:string,templateName?:string):void{
-  const now=Date.now();library.history.push({id:newId(),folderId:ROOT_FOLDER,text,order:now,createdAt:now,updatedAt:now,templateName});
-  while(library.history.length>1&&(library.history.length>500||new TextEncoder().encode(JSON.stringify(library)).length>900_000))library.history.shift();
+export function recordPrompt(library:LibraryState,text:string,context?:HistoryContext):HistoryItem{
+  const now=Date.now();const item={id:newId(),folderId:ROOT_FOLDER,text,order:now,createdAt:now,updatedAt:now,context};
+  library.history.push(item);
+  return item;
 }
 export function referenceBytes(library:LibraryState):number{return library.templates.reduce((n,t)=>n+t.references.reduce((m,r)=>m+r.dataUrl.length,0),0);}

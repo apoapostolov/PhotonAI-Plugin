@@ -10,7 +10,8 @@ import {MODEL_CACHE_MS,cachedBundledModels,listsModels,loadProviderModels,modelC
 import {applyOutputOptions} from './providers/output-options';
 import {signInDialog,updateSignInDialog} from './signin';
 import {loadAccountQuota} from './providers/quota';
-import {cleanLibrary,fillTemplate,migrateTemplateSyntax,newId,recordPrompt,referenceBytes,REFERENCE_BUDGET,ROOT_FOLDER,templateFields,type LibraryState,type ReferenceImage,type TemplateItem,type TemplateField} from './library';
+import {cleanLibrary,fillTemplate,migrateTemplateSyntax,newId,recordPrompt,referenceBytes,REFERENCE_BUDGET,ROOT_FOLDER,templateFields,type HistoryItem,type LibraryState,type ReferenceImage,type TemplateItem,type TemplateField} from './library';
+import {captureHistoryContext,cleanHistoryImages,compactHistoryImages,historyImageBytes,restoreHistoryImages,restoreHistoryTemplate} from './history-images';
 import {seedPremadeTemplates} from './premade-templates';
 import {ensureEditPrompts,editPrompt,type EditAction} from './edit-prompts';
 import {readPluginConfig,writePluginConfig} from './plugin-config';
@@ -21,14 +22,17 @@ interface Result {bytes:Uint8Array;image:ImagePixels;capture?:Capture;name:strin
 export async function activate(api:PhotonApi,panel?:CustomPanel){
   const oldSettings=await api.settings.get<Partial<Settings>>();
   const storedLibrary=await readPluginConfig<unknown>('library');
+  const storedHistoryImages=await readPluginConfig<unknown>('references');
   const hasStoredLibrary=!!storedLibrary&&typeof storedLibrary==='object'&&Array.isArray((storedLibrary as Partial<LibraryState>).templates)&&Array.isArray((storedLibrary as Partial<LibraryState>).prompts);
   let settings:Settings={provider:'openai',models:{},customBase:'https://api.openai.com/v1',customModel:'',customEdit:true,customSizes:'1024x1024,1536x1024,1024x1536',customQualities:'',customMaxEdge:2048,modelCache:{},...oldSettings,library:cleanLibrary(hasStoredLibrary?storedLibrary:oldSettings.library)};
+  const historyImages=cleanHistoryImages(storedHistoryImages);
+  let historyImagesDirty=compactHistoryImages(historyImages,settings.library);
   const seededTemplates=seedPremadeTemplates(settings.library);
   const seededEditPrompts=ensureEditPrompts(settings.library);
   const migratedTemplateSyntax=migrateTemplateSyntax(settings.library);
   settings.modelCache=sanitizeModelCache(settings.modelCache);
   if(!providers.some(p=>p.id===settings.provider))settings.provider='openai';
-  let mode:Mode='generate',editAction:EditAction='add',prompt='',promptSaveError='',size='1024x1024',quality='auto',busy=false,error='',credential=false,persistent=true,result:Result|undefined,insert=false,hasSelection=false,activeTemplateId='',templateValues:Record<string,string>={},manualReferences:ReferenceImage[]=[];
+  let mode:Mode='generate',editAction:EditAction='add',prompt='',promptSaveError='',size='1024x1024',quality='auto',busy=false,error='',credential=false,persistent=true,result:Result|undefined,insert=false,hasSelection=false,activeTemplateId='',restoredTemplate:TemplateItem|undefined,restoredEditInstruction:string|undefined,expectedReplayModel:string|undefined,templateValues:Record<string,string>={},manualReferences:ReferenceImage[]=[];
   const sessions:Partial<Record<'codex'|'grok',OAuthSession>>={};const quotas:Partial<Record<'codex'|'grok',string>>={};
   const subscriptions:{dispose():void}[]=[];let disposed=false;const listAbort=new AbortController();let refreshTimer:ReturnType<typeof setTimeout>|undefined;let quotaTimer:ReturnType<typeof setTimeout>|undefined;let quotaBusy=false;
   const provider=()=>providers.find(p=>p.id===settings.provider)!;
@@ -37,11 +41,23 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
   const sizeLabel=(value:string)=>{const pixels=/^(\d+)x(\d+)$/.exec(value);if(pixels)return pixels[1]+' × '+pixels[2];return value==='auto'?'Auto':value;};
   const qualityLabel=(value:string):string=>{const compound=/^([a-z]+(?:_[a-z]+)?)@([0-9.]+k)$/i.exec(value);if(compound)return qualityLabel(compound[1])+' · '+compound[2].toUpperCase();if(value==='xhigh')return 'Extra high';if(value==='hd')return 'HD';if(/^[0-9.]+k$/i.test(value))return value.toUpperCase();return value.split('_').map(part=>part?part[0].toUpperCase()+part.slice(1):part).join(' ');};
   const model=()=>models().find(m=>m.id===settings.models[settings.provider])??models()[0];
+  const activeTemplate=()=>restoredTemplate??settings.library.templates.find(item=>item.id===activeTemplateId);
   const keyId=()=>settings.provider;
   const endpoint=()=>settings.provider==='custom'?new URL(settings.customBase).origin:provider().origin;
   const refreshContext=async()=>{const doc=await api.documents.active();hasSelection=!!doc?.hasSelection;};
   const clearResult=async()=>{if(result?.capture)await api.documents.release(result.capture.token).catch(()=>{});result=undefined;};
-  const save=async()=>{const bytes=()=>new TextEncoder().encode(JSON.stringify(settings.library)).length;while(bytes()>940_000&&settings.library.history.length>0)settings.library.history.shift();if(bytes()>940_000)throw new PluginError('LIBRARY_FULL','The library is full. Remove saved cards or image references before adding more.');await writePluginConfig('library',settings.library as unknown as Record<string,unknown>);const {library:_library,...mainSettings}=settings;await api.settings.set(mainSettings as Record<string,unknown>);};
+  const save=async(preserveHistoryId?:string)=>{
+    const bytes=()=>new TextEncoder().encode(JSON.stringify(settings.library)).length;
+    while(settings.library.history.length&&(settings.library.history.length>500||bytes()>900_000||historyImageBytes(historyImages)>900_000)){
+      if(settings.library.history[0].id===preserveHistoryId)throw new PluginError('HISTORY_FULL','This prompt and its references exceed the available History storage. Remove saved cards or references, then try again.');
+      settings.library.history.shift();historyImagesDirty=compactHistoryImages(historyImages,settings.library)||historyImagesDirty;
+    }
+    if(bytes()>940_000||historyImageBytes(historyImages)>940_000)throw new PluginError('LIBRARY_FULL','The library is full. Remove saved cards or image references before adding more.');
+    historyImagesDirty=compactHistoryImages(historyImages,settings.library)||historyImagesDirty;
+    if(historyImagesDirty){await writePluginConfig('references',historyImages as unknown as Record<string,unknown>);historyImagesDirty=false;}
+    await writePluginConfig('library',settings.library as unknown as Record<string,unknown>);
+    const {library:_library,...mainSettings}=settings;await api.settings.set(mainSettings as Record<string,unknown>);
+  };
   const fieldControl=(field:TemplateField):Control=>{
     const id='templateField:'+field.name,value=templateValues[field.name];
     if(field.kind==='check')return {type:'checkbox',id,label:field.name,value:value==='true',disabled:busy,description:field.choices?.[1]?.content?'Unchecked: '+field.choices[1].content:undefined};
@@ -53,7 +69,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
     if(field.options.length)return {type:'select',id,label:field.name,value:value??field.options[0],disabled:busy,options:field.options.map(option=>({value:option,label:option}))};
     return {type:'input',id,label:field.name,value:value??'',disabled:busy};
   };
-  if(seededTemplates||seededEditPrompts||migratedTemplateSyntax||!hasStoredLibrary||oldSettings.library!==undefined)await save();
+  if(seededTemplates||seededEditPrompts||migratedTemplateSyntax||historyImagesDirty||!hasStoredLibrary||oldSettings.library!==undefined)await save();
   const refreshCredential=async()=>{const info=await api.credentials.status(keyId());credential=info.configured;try{credential=credential&&info.origin===endpoint();}catch{credential=false;}persistent=info.persistent;};
   const listContext=(id:ProviderId)=>({api,credential:id,job:{id:'models',signal:listAbort.signal,progress:async()=>{}}});
   const refreshModels=async(id:ProviderId,force:boolean)=>{
@@ -89,7 +105,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
     if(mode!=='remove'){
       controls.push({type:'textarea',id:'prompt',label:mode==='fill'?'Describe the edit':'Describe your image',value:prompt,description:promptSaveError,disabled:busy});
       controls.push({type:'group',id:'promptActions',children:[{type:'button',id:'library',label:'Library',disabled:busy},{type:'button',id:'templates',label:'Templates',disabled:busy}]});
-      const template=settings.library.templates.find(t=>t.id===activeTemplateId);
+      const template=activeTemplate();
       if(template){const fields:Control[]=templateFields(template.text).map(fieldControl);if(template.transparentBackground)fields.push({type:'text',text:'Transparent image · OpenAI, Codex, or Grok'});controls.push({type:'group',id:'templateSurface',label:template.name,children:fields});}
       const refs=[...(template?.references??[]),...manualReferences];
       controls.push({type:'group',id:'referenceStrip',label:'Image references',children:refs.map(r=>({type:'image',id:'reference:'+r.id,label:r.name,src:r.dataUrl}))});
@@ -98,7 +114,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
     if(m?.qualities?.length)controls.push({type:'select',id:'quality',label:'Quality',value:quality,disabled:busy,options:m.qualities.map(value=>({value,label:qualityLabel(value)}))});
     if(mode==='generate')controls.push({type:'checkbox',id:'insert',label:'Insert into the current document',value:insert,disabled:busy});
     if(error&&!oauthId)controls.push({type:'text',tone:'danger',text:error});
-    controls.push({type:'button',id:'run',tone:'primary',label:busy?'Working…':result?'Regenerate':mode==='generate'?'Generate Image':mode==='remove'?'Remove Selection':'Generate Edit',disabled:busy||settings.provider==='midjourney'||!signedIn||!m?.id||(mode==='generate'?!m?.generate:!m?.edit)||mode!=='generate'&&!hasSelection});
+    controls.push({type:'button',id:'run',tone:'primary',label:busy?'Working…':result?'Regenerate':mode==='generate'?'Generate Image':mode==='remove'?'Remove Selection':'Generate Edit',disabled:busy||settings.provider==='midjourney'||!signedIn||!m?.id||!!expectedReplayModel&&m.id!==expectedReplayModel||(mode==='generate'?!m?.generate:!m?.edit)||mode!=='generate'&&!hasSelection});
     if(result)controls.push({type:'group',label:'Result preview',children:[
       {type:'image',label:result.name,src:'data:image/png;base64,'+base64(result.bytes)},
       {type:'group',id:'resultActions',children:[
@@ -111,10 +127,10 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
     await api.ui.render('ai',{title:'AI',controls} satisfies PanelModel);
   };
   const run=async()=>{
-    if(busy)return;const selected=model();if(!selected?.id)throw new PluginError('MODEL_UNAVAILABLE','Choose an image model.');
+    if(busy)return;const selected=model();if(!selected?.id||expectedReplayModel&&selected.id!==expectedReplayModel)throw new PluginError('MODEL_UNAVAILABLE','The saved model is unavailable. Choose another model before running.');
     if(mode!=='remove'&&!prompt.trim())throw new PluginError('PROMPT_REQUIRED','Write a prompt before generating.');
     if(mode!=='generate'&&!selected.edit)throw new PluginError('MODEL_UNAVAILABLE','This model does not support editing.');
-    const selectedTemplate=settings.library.templates.find(t=>t.id===activeTemplateId);const selectedReferences=[...(selectedTemplate?.references??[]),...manualReferences];
+    const selectedTemplate=mode==='remove'?undefined:activeTemplate();const selectedReferences=[...(selectedTemplate?.references??[]),...manualReferences];
     if(selectedTemplate?.transparentBackground&&(mode!=='generate'||!['openai','codex','grok'].includes(settings.provider)||settings.provider!=='grok'&&!selected.id.startsWith('gpt-image-')))throw new PluginError('TRANSPARENT_UNSUPPORTED','Transparent images require Generate mode with OpenAI, Codex, or Grok.');
     if(mode!=='remove'&&selectedReferences.length&&!['openai','codex','gemini','grok','xai'].includes(settings.provider))throw new PluginError('REFERENCES_UNSUPPORTED','This provider does not support image references here. Remove the references or choose OpenAI, Codex, Gemini, or Grok.');
     busy=true;error='';await publish();const requestedMode=mode;const requestedProvider=settings.provider;let capture:Capture|undefined;
@@ -131,12 +147,16 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
           source={png:encoded.bytes,whiteMask:white.bytes,alphaMask:alpha.bytes,width:encoded.width,height:encoded.height};
         }
         const oauthProvider=requestedProvider==='codex'||requestedProvider==='grok'?requestedProvider:undefined;let session=oauthProvider?sessions[oauthProvider]:undefined;if(oauthProvider&&session?.refreshToken&&session.expiresAt&&session.expiresAt<Date.now()+60_000){session=await refreshSession({api,job,credential:oauthProvider},oauthProvider,session);sessions[oauthProvider]=session;}
-        const template=settings.library.templates.find(t=>t.id===activeTemplateId);
+        const template=requestedMode==='remove'?undefined:activeTemplate();
         const context=template?fillTemplate(template.text,templateValues).trim():'';
-        const fullPrompt=requestedMode==='remove'?REMOVE_PROMPT:[requestedMode==='fill'?editPrompt(settings.library,editAction):'',context,prompt.trim()].filter(Boolean).join('\n\n');
+        const editInstruction=requestedMode==='fill'?(restoredEditInstruction??editPrompt(settings.library,editAction)):undefined;
+        const fullPrompt=requestedMode==='remove'?REMOVE_PROMPT:[editInstruction??'',context,prompt.trim()].filter(Boolean).join('\n\n');
         const references=requestedMode==='remove'?[]:[...(template?.references??[]),...manualReferences];
         const request:GenerateRequest={provider:requestedProvider,mode:requestedMode,model:selected.id,prompt:fullPrompt,size:selected.sizes?.length?size:requestedProvider==='custom'?'':'1024x1024',quality:selected.qualities?.length?quality:'',transparentBackground:!!template?.transparentBackground,source,references:references.map(r=>r.dataUrl),...(requestedProvider==='custom'?{baseUrl:settings.customBase}:{}),...(session?{accessToken:session.accessToken,accountId:session.accountId}:{})};
-        if(requestedMode!=='remove'){recordPrompt(settings.library,fullPrompt,template?.name);await save().catch(()=>{});}
+        const historyContext=captureHistoryContext(historyImages,{mode:requestedMode,editAction,editInstruction,provider:requestedProvider,model:selected.id,size:request.size,quality:request.quality,insert,template,values:templateValues,manualReferences});
+        historyImagesDirty=true;
+        const historyItem=recordPrompt(settings.library,requestedMode==='remove'?'Remove selection':prompt.trim(),historyContext);
+        try{await save(historyItem.id);}catch(reason){settings.library.history=settings.library.history.filter(item=>item.id!==historyItem.id);historyImagesDirty=compactHistoryImages(historyImages,settings.library)||historyImagesDirty;throw reason;}
         await job.progress('Sending to '+provider().label+'…');const bytes=await adapters[requestedProvider].run({api,job,credential:keyId()},request);job.signal.throwIfAborted();
         await job.progress('Preparing preview…');const image=await api.images.decode(bytes,capture?{width:capture.bounds.width,height:capture.bounds.height}:undefined);job.signal.throwIfAborted();const encoded=await api.images.encode(image,{maxEdge:8192});
         return {bytes:encoded.bytes,image,capture,name:requestedMode==='generate'?'AI Generated Image':requestedMode==='remove'?'AI Remove':'AI Edit',mode:requestedMode,target:target?{documentId:target.id,revision:target.revision}:undefined} satisfies Result;
@@ -144,6 +164,34 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
       await clearResult();result=next;capture=undefined;
     }catch(e){if(capture)await api.documents.release(capture.token).catch(()=>{});error=e instanceof Error?e.message:String(e);}
     finally{busy=false;await refreshContext();await publish();}
+  };
+  const restoreHistory=async(item:HistoryItem)=>{
+    const context=item.context;
+    const templateReferences=restoreHistoryImages(historyImages,item,'template');
+    const savedManualReferences=restoreHistoryImages(historyImages,item,'manual');
+    const missing=(context?.references.length??0)-templateReferences.length-savedManualReferences.length;
+    if(missing>0)throw new PluginError('HISTORY_REFERENCES_MISSING','This History entry is missing saved image references and cannot be restored.');
+    prompt=context?.mode==='remove'?'':item.text;promptSaveError='';
+    restoredTemplate=undefined;activeTemplateId='';restoredEditInstruction=undefined;expectedReplayModel=undefined;templateValues={};manualReferences=[];
+    if(!context){mode='generate';await refreshContext();await publish();return;}
+    mode=context.mode;
+    if(context.editAction)editAction=context.editAction;
+    if(context.mode==='fill')restoredEditInstruction=context.editInstruction;
+    manualReferences=savedManualReferences;
+    restoredTemplate=restoreHistoryTemplate(historyImages,item);
+    if(restoredTemplate){activeTemplateId=restoredTemplate.id;templateValues={...context.template!.values};}
+    if(context.provider&&providers.some(entry=>entry.id===context.provider)){
+      settings.provider=context.provider as ProviderId;
+      if(context.model){settings.models[settings.provider]=context.model;expectedReplayModel=context.model;if(settings.provider==='custom')settings.customModel=context.model;}
+      await refreshCredential();armRefresh();
+    }
+    if(context.size)size=context.size;
+    if(context.quality)quality=context.quality;
+    insert=context.insert===true;
+    await refreshContext();
+    const unavailable=!!context.model&&model()?.id!==context.model;
+    error=context.provider&&!providers.some(entry=>entry.id===context.provider)?'The saved provider is unavailable. Choose a provider before running.':unavailable?'The saved model is unavailable. Choose a model before running.':'';
+    await save();await publish();
   };
   const onEvent=async(event:{id:string;value?:string|number|boolean})=>{
     if(busy)return;error='';
@@ -158,13 +206,13 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
         if(!text)promptSaveError='Write a prompt before saving it.';
         else {promptSaveError='';const now=Date.now();settings.library.prompts.push({id:newId(),folderId:ROOT_FOLDER,text,order:now,createdAt:now,updatedAt:now});await save();}
       }
-      else if((event.id==='library'||event.id==='templates')&&panel){const selected=model(),conversionProvider=settings.provider;await panel.openCollection(event.id==='library'?'prompts':'templates',{library:settings.library,save:save,usePrompt:async text=>{prompt=text;promptSaveError='';await publish();},useTemplate:async item=>{activeTemplateId=item.id;templateValues={};await publish();},conversion:{model:selected?.label??'No model selected',available:!!selected&&canConvertTemplate(conversionProvider,selected.id)},convertTemplate:async(text,direction)=>{if(!selected?.id)throw new PluginError('MODEL_UNAVAILABLE','Choose a model before converting.');if(conversionProvider==='codex'?!sessions.codex:!credential)throw new PluginError('AUTHENTICATION','Connect this provider before converting.');return convertTemplate(api,{provider:conversionProvider,model:selected.id,baseUrl:settings.customBase,credential:conversionProvider,text,direction,codexSession:sessions.codex,onCodexSession:async session=>{sessions.codex=session;await saveOAuthSession('codex',session);}});}});return;}
-      else if(event.id==='clearTemplate'){activeTemplateId='';templateValues={};}
+      else if((event.id==='library'||event.id==='templates')&&panel){const selected=model(),conversionProvider=settings.provider;await panel.openCollection(event.id==='library'?'prompts':'templates',{library:settings.library,historyImages:historyImages.images,save:save,usePrompt:async text=>{prompt=text;promptSaveError='';expectedReplayModel=undefined;restoredEditInstruction=undefined;if(restoredTemplate){restoredTemplate=undefined;activeTemplateId='';templateValues={};manualReferences=[];}await publish();},useHistory:restoreHistory,useTemplate:async item=>{restoredTemplate=undefined;restoredEditInstruction=undefined;expectedReplayModel=undefined;activeTemplateId=item.id;templateValues={};await publish();},conversion:{model:selected?.label??'No model selected',available:!!selected&&canConvertTemplate(conversionProvider,selected.id)},convertTemplate:async(text,direction)=>{if(!selected?.id)throw new PluginError('MODEL_UNAVAILABLE','Choose a model before converting.');if(conversionProvider==='codex'?!sessions.codex:!credential)throw new PluginError('AUTHENTICATION','Connect this provider before converting.');return convertTemplate(api,{provider:conversionProvider,model:selected.id,baseUrl:settings.customBase,credential:conversionProvider,text,direction,codexSession:sessions.codex,onCodexSession:async session=>{sessions.codex=session;await saveOAuthSession('codex',session);}});}});return;}
+      else if(event.id==='clearTemplate'){activeTemplateId='';restoredTemplate=undefined;templateValues={};}
       else if(event.id==='panelError'){error=String(event.value??'');}
       else if(event.id.startsWith('templateField:')){templateValues[event.id.slice(14)]=String(event.value??'');return;}
       else if(event.id.startsWith('templateOption:')){
         const match=/^templateOption:(.*):(\d+)$/.exec(event.id);
-        const template=settings.library.templates.find(item=>item.id===activeTemplateId);
+        const template=activeTemplate();
         const field=template&&match?templateFields(template.text).find(item=>item.name===match[1]):undefined;
         const index=match?Number(match[2]):-1;
         if(!field||index<0||index>=(field.choices?.length??0))return;
@@ -176,16 +224,16 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
         }
         return;
       }
-      else if(event.id==='manualReference'){const ref=JSON.parse(String(event.value)) as ReferenceImage;if(!/^data:image\/(png|jpeg|webp);base64,/.test(ref.dataUrl))throw new PluginError('INVALID_REFERENCE','Choose an image reference.');if(referenceBytes(settings.library)+manualReferences.reduce((n,r)=>n+r.dataUrl.length,0)+ref.dataUrl.length>REFERENCE_BUDGET)throw new PluginError('REFERENCE_LIMIT','Reference storage is full. Remove an image before adding another.');manualReferences.push(ref);}
-      else if(event.id.startsWith('removeReference:')){const id=event.id.slice(16);manualReferences=manualReferences.filter(r=>r.id!==id);const template=settings.library.templates.find(t=>t.id===activeTemplateId);if(template?.references.some(r=>r.id===id)){template.references=template.references.filter(r=>r.id!==id);await save();}}
+      else if(event.id==='manualReference'){const ref=JSON.parse(String(event.value)) as ReferenceImage;if(!/^data:image\/(png|jpeg|webp);base64,/.test(ref.dataUrl))throw new PluginError('INVALID_REFERENCE','Choose an image reference.');const manualBytes=manualReferences.reduce((n,r)=>n+r.dataUrl.length,0)+ref.dataUrl.length;const restoredBytes=restoredTemplate?.references.reduce((n,r)=>n+r.dataUrl.length,0)??0;if(referenceBytes(settings.library)+manualBytes>REFERENCE_BUDGET||restoredBytes+manualBytes>REFERENCE_BUDGET)throw new PluginError('REFERENCE_LIMIT','Reference storage is full. Remove an image before adding another.');manualReferences.push(ref);}
+      else if(event.id.startsWith('removeReference:')){const id=event.id.slice(16);manualReferences=manualReferences.filter(r=>r.id!==id);const template=activeTemplate();if(template?.references.some(r=>r.id===id)){template.references=template.references.filter(r=>r.id!==id);if(!restoredTemplate)await save();}}
       else if(event.id==='apply'&&result){busy=true;await publish();await api.documents.applyImage({image:result.image,name:result.name,captureToken:result.capture?.token,documentId:result.target?.documentId,expectedRevision:result.target?.revision,newDocument:result.mode==='generate'&&!result.target});await clearResult();busy=false;await refreshContext();}
       else if(event.id==='discard')await clearResult();
       else if(event.id==='export'&&result){const file=await api.files.pick({save:true,name:result.name+'.png'});if(file)await api.files.write(file,result.bytes);}
-      else if(event.id==='provider'){settings.provider=event.value as ProviderId;await refreshCredential();await refreshModels(settings.provider,false);if(settings.provider==='codex'||settings.provider==='grok')await refreshQuota(settings.provider);armRefresh();await save();}
-      else if(event.id==='mode'){mode=event.value as Mode;await refreshContext();}
-      else if(event.id==='editAction'&&['add','change','replace'].includes(String(event.value)))editAction=event.value as EditAction;
-      else if(event.id==='model'){settings.models[settings.provider]=String(event.value);await save();}
-      else if(event.id==='accountModel'){settings.customModel=String(event.value??'');settings.models.custom=settings.customModel;await save();}
+      else if(event.id==='provider'){settings.provider=event.value as ProviderId;expectedReplayModel=undefined;await refreshCredential();await refreshModels(settings.provider,false);if(settings.provider==='codex'||settings.provider==='grok')await refreshQuota(settings.provider);armRefresh();await save();}
+      else if(event.id==='mode'){mode=event.value as Mode;expectedReplayModel=undefined;await refreshContext();}
+      else if(event.id==='editAction'&&['add','change','replace'].includes(String(event.value))){editAction=event.value as EditAction;restoredEditInstruction=undefined;}
+      else if(event.id==='model'){settings.models[settings.provider]=String(event.value);expectedReplayModel=undefined;await save();}
+      else if(event.id==='accountModel'){settings.customModel=String(event.value??'');settings.models.custom=settings.customModel;expectedReplayModel=undefined;await save();}
       else if(event.id==='prompt'){prompt=String(event.value??'');if(promptSaveError){promptSaveError='';await publish();}return;}
       else if(event.id==='size')size=String(event.value);
       else if(event.id==='quality')quality=String(event.value);

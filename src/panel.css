@@ -170,6 +170,17 @@ body.collection-modal .collection-dialog { width: 100vw; height: 100vh; }
 .drag-handle { cursor: grab; }
 .card-date { font-size: 11px; }
 .card p { max-height: 150px; margin: 4px 0 8px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; }
+.history-summary { display: flex; flex-wrap: wrap; gap: 3px 7px; margin: 0 0 6px; color: var(--ph-muted); font-size: 11px; }
+.history-summary span { overflow-wrap: anywhere; }
+.history-reference-list { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 6px; }
+.history-missing-reference { color: var(--ph-danger); font-size: 11px; }
+.history-details { margin-bottom: 6px; color: var(--ph-muted); font-size: 11px; }
+.history-details summary { cursor: pointer; }
+.history-details summary:focus-visible { outline: 1px solid var(--ph-accent); outline-offset: 2px; }
+.history-details dl { display: grid; gap: 4px; margin: 5px 0 0; }
+.history-details dl > div { min-width: 0; }
+.history-details dt { font-weight: 600; }
+.history-details dd { margin: 0; color: var(--ph-text); white-space: pre-wrap; overflow-wrap: anywhere; }
 .template-pill { display: inline-flex; align-items: center; max-width: 100%; gap: 4px; margin: 0 2px; padding: 1px 5px; border: 1px solid var(--ph-stroke-strong); border-radius: 9px; background: var(--ph-control-active); color: var(--ph-text); font: inherit; line-height: 1.25; vertical-align: baseline; white-space: nowrap; user-select: all; }
 .template-pill-icon { flex: none; color: var(--ph-accent); font-size: 11px; font-weight: 700; }
 .template-pill-name { overflow: hidden; text-overflow: ellipsis; }

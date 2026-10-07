@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### Structured prompt History (2026-10-07)
+
+New History entries store the visible prompt separately from template and
+edit instructions. Each entry snapshots its mode, Add/Change/Replace action
+and instruction, provider/model, output choices, template text and field
+values, transparency setting, and both template and manually attached image
+references. The card shows operation and reference metadata; Use restores the
+snapshot so later template edits do not change that History entry. Remove
+requests also appear in History. Older flattened entries remain readable and
+cannot recover metadata that was never stored.
+
+Reference image snapshots live in the plugin's private
+`config-references.json`, with identical image data shared across entries.
+The storage budget prunes oldest History entries and unused images together.
+The existing local host config patch already allows the `references` ID, so
+no new ASAR patch is required. Focused History snapshot tests and the
+TypeScript typecheck passed; live Photon replay remains to be checked after
+reloading the development folder.
+
 ### Result actions (2026-10-07)
 
 The generated result preview now places Apply, Discard, and Save as PNG in one

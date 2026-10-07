@@ -4,7 +4,25 @@ AI Studio uses a custom Photon panel. The Library and Templates buttons sit on o
 
 ## Library
 
-Save the current prompt with the icon inside the prompt field. Saved prompts and History have separate tabs in Library. Folder names are entered directly in the sidebar. Card actions use the pen, trash, and magic wand icons from `svg/`; folder rename uses that pen SVG, and the same trash SVG deletes folders and removes an applied template from the prompt. The icons follow Photon skin colors. Edit opens a larger dialog above the Library or Templates dialog. Its toolbar inserts basic Markdown syntax for headings, emphasis, quotes, lists, links, tables, code, and rules. The inline code button reads Code. Images are attached as references rather than inserted as Markdown image links. Save applies the changes; Cancel leaves the card untouched. To delete a folder, prompt, history entry, or template, click its trash glyph twice within two seconds. The first click turns it red; clicking elsewhere or waiting two seconds cancels deletion. Each submitted provider request records the full text sent to the provider, including expanded template context. Similar revisions appear as a stack; expand a stack to edit, delete, reorder, or reuse an earlier version. Use copies a prompt into the visible prompt field and closes Library.
+Save the current prompt with the icon inside the prompt field. Saved prompts and History have separate tabs in Library. Folder names are entered directly in the sidebar. Card actions use the pen, trash, and magic wand icons from `svg/`; folder rename uses that pen SVG, and the same trash SVG deletes folders and removes an applied template from the prompt. The icons follow Photon skin colors. Edit opens a larger dialog above the Library or Templates dialog. Its toolbar inserts basic Markdown syntax for headings, emphasis, quotes, lists, links, tables, code, and rules. The inline code button reads Code. Images are attached as references rather than inserted as Markdown image links. Save applies the changes; Cancel leaves the card untouched. To delete a folder, prompt, history entry, or template, click its trash glyph twice within two seconds. The first click turns it red; clicking elsewhere or waiting two seconds cancels deletion. Similar revisions appear as a stack; expand a stack to edit, delete, reorder, or reuse an earlier version. Use copies a saved prompt into the visible prompt field and closes Library.
+
+New History cards show the visible user prompt. They carry a snapshot of the
+operation, edit action and instruction, provider and model, output choices,
+template text, field values, transparency setting, and every submitted image
+reference, including references attached to the template. The card shows its
+operation, template, and reference thumbnails; **Request details** expands the
+remaining metadata. **Use** restores the prompt and these settings in the AI
+panel. It restores the saved template snapshot even if the original template
+has since changed or been deleted. Remove requests appear as **Remove
+selection** entries. Older History cards retain their previously saved,
+combined prompt text; their missing metadata cannot be reconstructed.
+
+History reference images are stored in the plugin's private
+`config-references.json`. Identical image data is shared between History
+entries. As the per-file limits approach, the oldest History entries and
+their unused reference images are pruned. The current template library keeps
+its own references in `config-library.json`; no new Photon ASAR patch is
+required beyond the existing plugin config capability.
 
 ## Templates
 
