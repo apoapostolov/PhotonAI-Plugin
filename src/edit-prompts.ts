@@ -4,8 +4,8 @@ import {type LibraryState,type TemplateItem} from './library';
 export type EditAction='add'|'change'|'replace';
 export const editActionHints:Record<EditAction,string>={
   add:'Add content within the selection; preserve existing details.',
-  change:'Modify the named element within the selection; preserve its other details.',
-  replace:'Replace the named element within the selection; keep the surrounding image.'
+  change:'Change the named element; keep its other details.',
+  replace:'Replace the named element; keep surrounding content.'
 };
 export const EDIT_PROMPTS_FOLDER='system:edit-prompts';
 export const editPromptId=(action:EditAction)=>`edit-prompt:${action}`;

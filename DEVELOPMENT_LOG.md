@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Shorter Edit action hints (2026-10-07)
+
+Change and Replace now use concise labels that fit within the length of Add.
+The prompt label and segmented control hover hint still share the same text.
+This is plugin UI only and needs no ASAR patch.
+
 ### Edit prompt label follows the selected action (2026-10-07)
 
 The prompt label in Edit now displays the selected Add, Change, or Replace
