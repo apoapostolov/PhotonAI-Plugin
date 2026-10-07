@@ -1,6 +1,6 @@
 export interface Folder {id:string;name:string;order:number;}
 export interface ReferenceImage {id:string;name:string;dataUrl:string;}
-export interface PromptItem {id:string;folderId:string;text:string;order:number;createdAt:number;updatedAt:number;stackId?:string|null;}
+export interface PromptItem {id:string;folderId:string;text:string;order:number;createdAt:number;updatedAt:number;stackId?:string|null;context?:HistoryContext;}
 export interface HistoryReference {id:string;name:string;key:string;source:'template'|'manual';}
 export interface HistoryTemplate {id:string;name:string;text:string;transparentBackground:boolean;values:Record<string,string>;}
 export interface HistoryContext {
@@ -8,7 +8,7 @@ export interface HistoryContext {
   provider?:string;model?:string;size?:string;quality?:string;insert?:boolean;
   template?:HistoryTemplate;references:HistoryReference[];
 }
-export interface HistoryItem extends PromptItem {templateName?:string;context?:HistoryContext;}
+export interface HistoryItem extends PromptItem {templateName?:string;}
 export interface TemplateItem extends PromptItem {name:string;references:ReferenceImage[];transparentBackground?:boolean;}
 export interface LibraryState {folders:Folder[];prompts:PromptItem[];history:HistoryItem[];templates:TemplateItem[];templateSeedVersion:number;templateSyntaxVersion:number;}
 export type TemplateFieldKind='text'|'select'|'radio'|'multi'|'multiselect'|'check';
@@ -23,7 +23,7 @@ export function cleanLibrary(value:unknown):LibraryState{
   if(!value||typeof value!=='object')return emptyLibrary();const source=value as Partial<LibraryState>;
   const folders=Array.isArray(source.folders)?source.folders.filter(f=>f&&typeof f.id==='string'&&typeof f.name==='string').slice(0,100):[];
   const stackId=(item:PromptItem)=>item.stackId===null||typeof item.stackId==='string'&&item.stackId.length<=100?item.stackId:undefined;
-  const prompts=Array.isArray(source.prompts)?source.prompts.filter(p=>p&&typeof p.id==='string'&&typeof p.text==='string').slice(0,2000).map(p=>({...p,stackId:stackId(p)})):[];
+  const prompts=Array.isArray(source.prompts)?source.prompts.filter(p=>p&&typeof p.id==='string'&&typeof p.text==='string').slice(0,2000).map(p=>({...p,stackId:stackId(p),context:cleanHistoryContext(p.context)})):[];
   const history=Array.isArray(source.history)?source.history.filter(p=>p&&typeof p.id==='string'&&typeof p.text==='string').slice(-2000).map(p=>({...p,stackId:stackId(p),context:cleanHistoryContext(p.context)})):[];
   const templates=Array.isArray(source.templates)?source.templates.filter(t=>t&&typeof t.id==='string'&&typeof t.text==='string'&&typeof t.name==='string').slice(0,510).map(t=>({...t,stackId:stackId(t),transparentBackground:t.transparentBackground===true,references:Array.isArray(t.references)?t.references.filter(r=>r&&typeof r.dataUrl==='string'&&/^data:image\/(png|jpeg|webp);base64,/.test(r.dataUrl)).slice(0,8):[]})):[];
   const templateSeedVersion=typeof source.templateSeedVersion==='number'&&Number.isInteger(source.templateSeedVersion)&&source.templateSeedVersion>=0?source.templateSeedVersion:0;

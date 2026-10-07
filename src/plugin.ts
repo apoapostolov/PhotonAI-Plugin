@@ -10,7 +10,7 @@ import {MODEL_CACHE_MS,cachedBundledModels,listsModels,loadProviderModels,modelC
 import {applyOutputOptions} from './providers/output-options';
 import {signInDialog,updateSignInDialog} from './signin';
 import {loadAccountQuota} from './providers/quota';
-import {cleanLibrary,fillTemplate,migrateTemplateSyntax,newId,recordPrompt,referenceBytes,REFERENCE_BUDGET,ROOT_FOLDER,templateFields,type HistoryItem,type LibraryState,type ReferenceImage,type TemplateItem,type TemplateField} from './library';
+import {cleanLibrary,fillTemplate,migrateTemplateSyntax,newId,recordPrompt,referenceBytes,REFERENCE_BUDGET,ROOT_FOLDER,templateFields,type LibraryState,type PromptItem,type ReferenceImage,type TemplateItem,type TemplateField} from './library';
 import {captureHistoryContext,cleanHistoryImages,compactHistoryImages,historyImageBytes,restoreHistoryImages,restoreHistoryTemplate} from './history-images';
 import {seedPremadeTemplates} from './premade-templates';
 import {ensureEditPrompts,editPrompt,type EditAction} from './edit-prompts';
@@ -48,6 +48,7 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
   const clearResult=async()=>{if(result?.capture)await api.documents.release(result.capture.token).catch(()=>{});result=undefined;};
   const save=async(preserveHistoryId?:string)=>{
     const bytes=()=>new TextEncoder().encode(JSON.stringify(settings.library)).length;
+    historyImagesDirty=compactHistoryImages(historyImages,settings.library)||historyImagesDirty;
     while(settings.library.history.length&&(settings.library.history.length>500||bytes()>900_000||historyImageBytes(historyImages)>900_000)){
       if(settings.library.history[0].id===preserveHistoryId)throw new PluginError('HISTORY_FULL','This prompt and its references exceed the available History storage. Remove saved cards or references, then try again.');
       settings.library.history.shift();historyImagesDirty=compactHistoryImages(historyImages,settings.library)||historyImagesDirty;
@@ -165,12 +166,12 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
     }catch(e){if(capture)await api.documents.release(capture.token).catch(()=>{});error=e instanceof Error?e.message:String(e);}
     finally{busy=false;await refreshContext();await publish();}
   };
-  const restoreHistory=async(item:HistoryItem)=>{
+  const restorePromptContext=async(item:PromptItem)=>{
     const context=item.context;
     const templateReferences=restoreHistoryImages(historyImages,item,'template');
     const savedManualReferences=restoreHistoryImages(historyImages,item,'manual');
     const missing=(context?.references.length??0)-templateReferences.length-savedManualReferences.length;
-    if(missing>0)throw new PluginError('HISTORY_REFERENCES_MISSING','This History entry is missing saved image references and cannot be restored.');
+    if(missing>0)throw new PluginError('HISTORY_REFERENCES_MISSING','This prompt is missing saved image references and cannot be restored.');
     prompt=context?.mode==='remove'?'':item.text;promptSaveError='';
     restoredTemplate=undefined;activeTemplateId='';restoredEditInstruction=undefined;expectedReplayModel=undefined;templateValues={};manualReferences=[];
     if(!context){mode='generate';await refreshContext();await publish();return;}
@@ -204,9 +205,16 @@ export async function activate(api:PhotonApi,panel?:CustomPanel){
       else if(event.id==='savePrompt'){
         const text=prompt.trim();
         if(!text)promptSaveError='Write a prompt before saving it.';
-        else {promptSaveError='';const now=Date.now();settings.library.prompts.push({id:newId(),folderId:ROOT_FOLDER,text,order:now,createdAt:now,updatedAt:now});await save();}
+        else {
+          promptSaveError='';const now=Date.now(),selected=model();
+          const previousHistory=[...settings.library.history],previousImages={...historyImages.images};
+          const context=captureHistoryContext(historyImages,{mode,editAction,editInstruction:mode==='fill'?(restoredEditInstruction??editPrompt(settings.library,editAction)):undefined,provider:settings.provider,model:selected?.id??'',size,quality,insert,template:activeTemplate(),values:templateValues,manualReferences});
+          const item:PromptItem={id:newId(),folderId:ROOT_FOLDER,text,order:now,createdAt:now,updatedAt:now,context};
+          historyImagesDirty=true;settings.library.prompts.push(item);
+          try{await save();}catch(reason){settings.library.prompts=settings.library.prompts.filter(saved=>saved.id!==item.id);settings.library.history=previousHistory;historyImages.images=previousImages;historyImagesDirty=true;throw reason;}
+        }
       }
-      else if((event.id==='library'||event.id==='templates')&&panel){const selected=model(),conversionProvider=settings.provider;await panel.openCollection(event.id==='library'?'prompts':'templates',{library:settings.library,historyImages:historyImages.images,save:save,usePrompt:async text=>{prompt=text;promptSaveError='';expectedReplayModel=undefined;restoredEditInstruction=undefined;if(restoredTemplate){restoredTemplate=undefined;activeTemplateId='';templateValues={};manualReferences=[];}await publish();},useHistory:restoreHistory,useTemplate:async item=>{restoredTemplate=undefined;restoredEditInstruction=undefined;expectedReplayModel=undefined;activeTemplateId=item.id;templateValues={};await publish();},conversion:{model:selected?.label??'No model selected',available:!!selected&&canConvertTemplate(conversionProvider,selected.id)},convertTemplate:async(text,direction)=>{if(!selected?.id)throw new PluginError('MODEL_UNAVAILABLE','Choose a model before converting.');if(conversionProvider==='codex'?!sessions.codex:!credential)throw new PluginError('AUTHENTICATION','Connect this provider before converting.');return convertTemplate(api,{provider:conversionProvider,model:selected.id,baseUrl:settings.customBase,credential:conversionProvider,text,direction,codexSession:sessions.codex,onCodexSession:async session=>{sessions.codex=session;await saveOAuthSession('codex',session);}});}});return;}
+      else if((event.id==='library'||event.id==='templates')&&panel){const selected=model(),conversionProvider=settings.provider;await panel.openCollection(event.id==='library'?'prompts':'templates',{library:settings.library,historyImages:historyImages.images,save:save,usePrompt:async item=>{if(item.context){await restorePromptContext(item);return;}prompt=item.text;promptSaveError='';expectedReplayModel=undefined;restoredEditInstruction=undefined;if(restoredTemplate){restoredTemplate=undefined;activeTemplateId='';templateValues={};manualReferences=[];}await publish();},useHistory:restorePromptContext,useTemplate:async item=>{restoredTemplate=undefined;restoredEditInstruction=undefined;expectedReplayModel=undefined;activeTemplateId=item.id;templateValues={};await publish();},conversion:{model:selected?.label??'No model selected',available:!!selected&&canConvertTemplate(conversionProvider,selected.id)},convertTemplate:async(text,direction)=>{if(!selected?.id)throw new PluginError('MODEL_UNAVAILABLE','Choose a model before converting.');if(conversionProvider==='codex'?!sessions.codex:!credential)throw new PluginError('AUTHENTICATION','Connect this provider before converting.');return convertTemplate(api,{provider:conversionProvider,model:selected.id,baseUrl:settings.customBase,credential:conversionProvider,text,direction,codexSession:sessions.codex,onCodexSession:async session=>{sessions.codex=session;await saveOAuthSession('codex',session);}});}});return;}
       else if(event.id==='clearTemplate'){activeTemplateId='';restoredTemplate=undefined;templateValues={};}
       else if(event.id==='panelError'){error=String(event.value??'');}
       else if(event.id.startsWith('templateField:')){templateValues[event.id.slice(14)]=String(event.value??'');return;}

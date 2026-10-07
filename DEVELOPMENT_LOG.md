@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### Saved prompt context (2026-10-07)
+
+Saving a prompt to Library now captures the same context as a new History
+entry: active template text and filled or checked controls, Edit action and
+instruction, provider/model and output choices, and both template and manual
+image references. The saved card shows template and reference metadata; Use
+restores the captured state even if the original template changes. Editing
+the card changes its prompt text while retaining that state. Older Library
+prompts remain text-only.
+
+Both Library prompts and History share deduplicated image data in
+`config-references.json`. Reference cleanup now retains images while either
+tab uses them; the storage budget still prunes only old History entries.
+The existing local config bridge covers this behavior, so no additional ASAR
+patch is needed. Live Photon replay remains to be checked after reloading the
+development folder.
+
 ### Structured prompt History (2026-10-07)
 
 New History entries store the visible prompt separately from template and

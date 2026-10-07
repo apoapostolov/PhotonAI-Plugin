@@ -26,7 +26,7 @@ const templateFieldHelp=(open:boolean)=>String.raw`<section id="template-fields-
 const root=document.getElementById('app')!;
 const overlay=document.getElementById('overlay')!;
 type CollectionKind='prompts'|'templates';
-export interface CollectionActions {library:LibraryState;historyImages:Record<string,string>;save():Promise<void>;usePrompt(text:string):Promise<void>;useHistory(item:HistoryItem):Promise<void>;useTemplate(item:TemplateItem):Promise<void>;conversion:{model:string;available:boolean};convertTemplate(text:string,direction:'json'|'narrative'):Promise<string>;}
+export interface CollectionActions {library:LibraryState;historyImages:Record<string,string>;save():Promise<void>;usePrompt(item:PromptItem):Promise<void>;useHistory(item:HistoryItem):Promise<void>;useTemplate(item:TemplateItem):Promise<void>;conversion:{model:string;available:boolean};convertTemplate(text:string,direction:'json'|'narrative'):Promise<string>;}
 export interface CustomPanel {api:PhotonApi;openCollection(kind:CollectionKind,actions:CollectionActions):Promise<void>;closeCollection():Promise<void>;}
 
 interface HostReply {value?:unknown;error?:string;}
@@ -222,7 +222,7 @@ function showCollection(kind:CollectionKind,actions:CollectionActions,closeColle
     const template=kind==='templates'&&!history?item as TemplateItem:undefined;
     const modePrompt=!!template&&isEditPrompt(item.id);
     const images=template?.references??[];
-    const saved=history?(item as HistoryItem).context:undefined;
+    const saved=item.context;
     const fieldDetails=saved?.template?templateFields(saved.template.text).map(field=>{
       const raw=saved.template!.values[field.name]??'';
       const value=field.kind==='check'?raw==='true'?'On':'Off':field.kind==='radio'||field.kind==='select'?field.choices?.[Number(raw||0)]?.label??raw:field.kind==='multi'||field.kind==='multiselect'?raw.split(',').filter(Boolean).map(index=>field.choices?.[Number(index)]?.label).filter(Boolean).join(', '):raw;
@@ -243,7 +243,7 @@ function showCollection(kind:CollectionKind,actions:CollectionActions,closeColle
     const source=tab==='history'?actions.library.history:list();
     const visible=source.filter(x=>folder===ROOT_FOLDER||x.folderId===folder).slice().sort((a,b)=>tab==='history'?b.order-a.order:a.order-b.order);
     const query=search.trim().toLocaleLowerCase();
-    const matches=(item:PromptItem|TemplateItem)=>{const context=(item as HistoryItem).context;return [item.text,'name'in item?item.name:new Date(item.updatedAt).toLocaleString(),...(context?[context.template?.name??'',context.editAction??'',context.provider??'',context.model??'',...context.references.map(ref=>ref.name)]:[])].some(value=>value.toLocaleLowerCase().includes(query));};
+    const matches=(item:PromptItem|TemplateItem)=>{const context=item.context;return [item.text,'name'in item?item.name:new Date(item.updatedAt).toLocaleString(),...(context?[context.template?.name??'',context.editAction??'',context.provider??'',context.model??'',...context.references.map(ref=>ref.name)]:[])].some(value=>value.toLocaleLowerCase().includes(query));};
     const groups=promptStacks(visible).filter(group=>!query||group.some(matches)||group.length>1&&`${group.length} versions`.includes(query));
     const previous=new Map(Array.from(overlay.querySelectorAll<HTMLElement>('[data-card]')).map(el=>[el.dataset.card!,el.getBoundingClientRect()]));
     root.inert=true;
@@ -312,7 +312,7 @@ function showCollection(kind:CollectionKind,actions:CollectionActions,closeColle
     if(button.dataset.removeRef&&'references'in item){item.references=(item as TemplateItem).references.filter(r=>r.id!==button.dataset.ref);await commit();return;}
     if(button.dataset.use){
       if(isEditPrompt(id))return;
-      try{if('name'in item)await actions.useTemplate(item as TemplateItem);else if(tab==='history')await actions.useHistory(item as HistoryItem);else await actions.usePrompt(item.text);hide();}
+      try{if('name'in item)await actions.useTemplate(item as TemplateItem);else if(tab==='history')await actions.useHistory(item as HistoryItem);else await actions.usePrompt(item as PromptItem);hide();}
       catch(reason){notice=reason instanceof Error?reason.message:String(reason);render();}
     }
   };

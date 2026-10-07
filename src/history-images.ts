@@ -1,4 +1,4 @@
-import {newId,ROOT_FOLDER,type HistoryContext,type HistoryItem,type LibraryState,type ReferenceImage,type HistoryReference,type TemplateItem} from './library';
+import {newId,ROOT_FOLDER,type HistoryContext,type LibraryState,type PromptItem,type ReferenceImage,type HistoryReference,type TemplateItem} from './library';
 
 export interface HistoryImages {images:Record<string,string>;}
 const imageData=(value:unknown):value is string=>typeof value==='string'&&/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value);
@@ -24,17 +24,17 @@ export function captureHistoryContext(store:HistoryImages,input:{mode:HistoryCon
   return {mode:input.mode,editAction:input.mode==='fill'?input.editAction:undefined,editInstruction:input.mode==='fill'?input.editInstruction:undefined,provider:input.provider,model:input.model,size:input.size,quality:input.quality,insert:input.mode==='generate'&&input.insert,template:template?{id:template.id,name:template.name,text:template.text,transparentBackground:!!template.transparentBackground,values:{...input.values}}:undefined,references:captureHistoryImages(store,input.mode==='remove'?[]:[...(template?.references??[]).map(image=>({source:'template' as const,image})),...input.manualReferences.map(image=>({source:'manual' as const,image}))])};
 }
 
-export function restoreHistoryImages(store:HistoryImages,item:HistoryItem,source:'template'|'manual'):ReferenceImage[]{
+export function restoreHistoryImages(store:HistoryImages,item:PromptItem,source:'template'|'manual'):ReferenceImage[]{
   return (item.context?.references??[]).filter(ref=>ref.source===source&&imageData(store.images[ref.key])).map(ref=>({id:ref.id,name:ref.name,dataUrl:store.images[ref.key]}));
 }
 
-export function restoreHistoryTemplate(store:HistoryImages,item:HistoryItem):TemplateItem|undefined{
+export function restoreHistoryTemplate(store:HistoryImages,item:PromptItem):TemplateItem|undefined{
   const saved=item.context?.template;if(!saved)return;
   return {id:saved.id||'history:'+item.id,folderId:ROOT_FOLDER,name:saved.name,text:saved.text,transparentBackground:saved.transparentBackground,references:restoreHistoryImages(store,item,'template'),order:item.order,createdAt:item.createdAt,updatedAt:item.updatedAt};
 }
 
 export function compactHistoryImages(store:HistoryImages,library:LibraryState):boolean{
-  const used=new Set(library.history.flatMap(item=>item.context?.references.map(ref=>ref.key)??[]));
+  const used=new Set([...library.prompts,...library.history].flatMap(item=>item.context?.references.map(ref=>ref.key)??[]));
   let changed=false;
   for(const key of Object.keys(store.images))if(!used.has(key)){delete store.images[key];changed=true;}
   return changed;
