@@ -39,6 +39,12 @@ text supports danger tone. Escape dismisses modal dialogs.
 IDs are scoped to the plugin. Settings persist through replacement/reload. Use settings for
 preferences, never API keys. Linux without a secure storage backend uses session-only keys.
 
+Photon AI Studio additionally needs the proposed per-plugin `config.get<T>(id)`
+and `config.set(id, value)` host methods for its separate Library JSON file.
+They are not in the vendored SDK yet; the plugin uses the bridge. Stock Photon
+Studio 0.1.42 needs the controller change in
+[Photon host changes](photon-host-changes.md) before this build can load.
+
 ## Network and jobs
 
 | Method | Result / contract |

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "edit-prompt:add",
+    "name": "Add",
+    "text": "Use the source image as the starting composition. Add only the requested element or detail inside the selected area. Keep existing content unless the addition naturally covers part of it; do not remove, restyle, or move unrelated elements. Preserve faces, text, positions, lighting, and background details. Match the source scale, perspective, texture, and shadows. Use any extra reference images to guide the addition, not to replace the source composition."
+  },
+  {
+    "id": "edit-prompt:change",
+    "name": "Change",
+    "text": "Use the source image as the starting composition. Find the named element inside the selected area and change only the property the user specifies. Keep that element's identity, shape, position, and all other properties unless the request explicitly changes them. Preserve every unrelated element, face, word, and background detail. Match the source perspective, lighting, texture, and shadows. Use any extra reference images only for the requested change."
+  },
+  {
+    "id": "edit-prompt:replace",
+    "name": "Replace",
+    "text": "Use the source image as the starting composition. Inside the selected area, remove only the element the user names and put the requested replacement in its place. Reconstruct only the background exposed by that removal. Retain every other visible element, face, word, position, and the overall composition. Match the replacement to the source scale, perspective, lighting, texture, and shadows. Use any extra reference images only to guide the replacement."
+  }
+]

@@ -10,7 +10,7 @@ Validation on 2026-10-02:
 | Final packaged AI workflow | Passed again: generation, fill, removal, explicit Apply, cancellation and editing during requests |
 | SDK build, Photon typecheck, renderer/Electron builds | Passed |
 
-Tests cover all six provider adapters and custom endpoints using fixtures, queued jobs,
+Tests cover the provider adapters and custom endpoints using fixtures, queued jobs,
 mask conventions, binary outputs, errors and cancellation. Host tests cover manifest validation,
 isolation, permissions, credential scoping, contribution cleanup, fractional selection masks,
 depth/profile conversion, stale revisions and atomic history. Electron tests cover installation,
@@ -29,6 +29,15 @@ cross-platform runtime qualification was run.
 Live-provider billing, account availability, quality and remote cancellation require a real
 provider key and a live request. Mocked responses are not proof of live provider qualification.
 This repository contains no keys and no automatic paid smoke test.
+
+The 2026-10-07 Edit preservation update was checked against the current
+OpenAI Images API reference and xAI image editing documentation. The installed
+Photon 0.1.42 encoder maps selected mask coverage to transparent alpha and
+resizes the source and masks with the same edge limit; the plugin now rejects
+unequal encoded dimensions. TypeScript typecheck, documentation checks, and
+packaging passed. No live OpenAI, Codex, or Grok edit was submitted. Exact
+visual preservation, provider-specific output dimensions, and repeated
+portrait comparisons remain open for live review.
 
 Provider image edits operate on sRGB references; prompt-based models may interpret selection
 boundaries imperfectly. Photon limits Apply with the original selection mask, preserving the

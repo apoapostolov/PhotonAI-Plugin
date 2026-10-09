@@ -13,6 +13,14 @@ the editor; Photon renders native controls and owns documents, undo, files, cred
 7. [Provider setup and adding an adapter](providers.md)
 8. [Packaging, debugging and compatibility](development.md)
 9. [Verification and known limits](verification.md)
+10. [Prompt Library and Templates](library-and-templates.md)
+11. [Premade templates and research basis](premade-templates.md)
+12. [Earlier panel style and four-skin adaptation](panel-style-draft.md)
+
+[Photon host changes](photon-host-changes.md) is a note for the Photon team.
+Device sign-in, editor-wide Library/Templates dialogs, and separate per-plugin
+configuration files need Photon host and SDK changes. The required archive
+changes and local patch procedure are in that note.
 
 The authoritative TypeScript declarations are in the bundled `@photon/plugin-sdk` package.
 All examples compile against that exact package. APIs described here are implemented unless

@@ -8,10 +8,10 @@
   "panels": [
     {
       "id": "ai",
-      "label": "AI Studio",
-      "ui": "native",
+      "label": "AI",
+      "ui": "custom",
       "minimumSize": {
-        "width": 260,
+        "width": 360,
         "height": 320
       }
     }
@@ -69,7 +69,15 @@
       "https://queue.fal.run",
       "https://api.replicate.com",
       "https://api.bfl.ai",
-      "https://api.*.bfl.ai"
+      "https://api.*.bfl.ai",
+      "https://chatgpt.com",
+      "https://auth.openai.com",
+      "https://api.x.ai",
+      "https://auth.x.ai",
+      "https://*.x.ai",
+      "https://cli-chat-proxy.grok.com",
+      "https://api.ideogram.ai",
+      "https://*.ideogram.ai"
     ],
     "credentialOrigins": {
       "https://api.bfl.ai": [

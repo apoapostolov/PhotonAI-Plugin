@@ -1,13 +1,18 @@
 # Photon AI Studio
 
-A native Photon Studio plugin for **BYOK image generation, AI object removal, and generative fill**.
-Bring your own OpenAI, Gemini, Together AI, fal.ai, Replicate, or Black Forest Labs API key;
-custom OpenAI-compatible services are supported too. Images go directly from your device to
+A Photon Studio plugin for **BYOK image generation, AI object removal, and generative fill**.
+Bring your own OpenAI, Gemini, Ideogram, Black Forest Labs, fal.ai, Replicate, Together AI, or X API key,
+or sign in to Codex and Grok. Custom OpenAI-compatible services are supported too. Images go directly from your device to
 that provider. Photon does not supply credits or proxy requests through a Tenzen account.
 
 ## Build and install
 
 Requires Node.js 22 or later and a Photon build containing SDK v1.
+The current plugin also needs Photon's host changes for device sign-in,
+editor-wide dialogs, and separate per-plugin configuration files; see
+[Photon host changes](docs/photon-host-changes.md). Stock 0.1.42 lacks these
+capabilities. Per-plugin configuration files are a proposed host and SDK
+feature expansion; the local archive patch is a development bridge.
 
 ```sh
 npm ci
@@ -21,14 +26,18 @@ For development, **Import folder…** → `dist/plugin`; after rebuilding, use
 
 Choose a provider and **Connect provider**. Photon opens its own password field; the plugin
 receives a credential reference, never your saved key. Configure a separate key per provider.
-Click Generate, Remove, or Fill explicitly to make a billable provider request.
+Click Generate, Remove, or Edit explicitly to make a billable provider request.
 
 - **Generate:** enter a prompt, preview the result, and Apply into a new RGB document.
   Enable “Insert into the current document” to place it into an existing RGB document instead.
 - **Remove:** select unwanted content, invoke **AI Remove…** from the selection menu, and preview.
-- **Fill:** make a selection, invoke **Generative Fill…**, and describe the replacement.
+- **Edit:** make a selection, invoke **Generative Fill…**, choose Add, Change, or Replace, and describe the edit.
 - **Apply:** creates a named layer and one undo step. Selection edits have an editable mask.
   Source layers remain unchanged. If the source document changed, regenerate before applying.
+- **Library:** save prompts, revisit every recent successful use in History, and expand stacks of similar revisions.
+- **Templates:** apply reusable context with editable text fields, dropdowns, radio groups, checkboxes, multi-select dropdowns, and attached image references. The visible prompt remains separate from template context.
+
+See [Library and Templates](docs/library-and-templates.md) for field syntax, folder and card controls, reference support, and storage limits.
 
 ## Plugin developer guide
 

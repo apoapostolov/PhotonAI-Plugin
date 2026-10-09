@@ -1,0 +1,159 @@
+# Prompt Library and Templates
+
+AI Studio uses a custom Photon panel. The Library and Templates buttons sit on one row directly below the prompt field. The borderless bookmark icon at the upper right of the prompt field saves the current prompt to Library. An empty save attempt shows its error directly below the prompt box. Each collection opens in a separate modal window through the Photon host's `ui.customDialog` bridge; the docked panel remains visible behind the modal. The folder sidebar stays on the left and cards stay on the right. Cards flow down independent columns, so a tall card or expanded stack does not leave a gap beneath a shorter card in the next column. The centered Filter Prompts or Filter Templates field in the content toolbar is focused when the dialog opens. It has a bottom hairline and filters live, ignoring case, by card names, prompt or template text, and the displayed prompt date. A stack appears if any version matches and opens to reveal its cards. Escape clears a nonempty filter; filtering does not alter saved cards or order. Drag a card before or after another card to reorder it, onto a folder to move it, or onto an existing stack to join that stack. Expand a stack to reorder its cards by dragging them up or down. While dragging a stacked card, a "Drop here to separate" area appears below the cards; dropping there makes the card independent even when its text is similar. Cards animate to their new positions unless the system requests reduced motion. The host patch required for the separate modal is documented in [Photon host changes](./photon-host-changes.md).
+
+## Library
+
+The footer of Saved, History, and Templates has **Export** and **Import**.
+Choose **All** in the sidebar to export that entire tab, or choose a folder
+to export only its cards. The live text filter does not narrow an export.
+Each JSON file records the source tab, folder names, stack membership, card
+order, and any prompt context or image references. Import from the matching
+tab. Photon recreates missing folders by name and adds the cards to existing
+folders with the same name; importing the same file twice adds another copy.
+The fixed Edit Prompts cards retain their IDs and update their instructions
+when imported. Images travel inside the file and receive local storage keys
+on import, so prompt and History references remain usable on another
+installation. The destination's Library and reference storage limits still
+apply. Large collections can be exported one folder at a time. Export and
+Import use Photon's existing file picker and private config bridge; they
+need no additional ASAR patch.
+
+Save the current prompt with the icon inside the prompt field. Saved prompts and History have separate tabs in Library. Folder names are entered directly in the sidebar. Card actions use the pen, trash, and magic wand icons from `svg/`; folder rename uses that pen SVG, and the same trash SVG deletes folders and removes an applied template from the prompt. The icons follow Photon skin colors. Edit opens a larger dialog above the Library or Templates dialog. Its toolbar inserts basic Markdown syntax for headings, emphasis, quotes, lists, links, tables, code, and rules. The inline code button reads Code. Images are attached as references rather than inserted as Markdown image links. Save applies the changes; Cancel leaves the card untouched. To delete a folder, prompt, history entry, or template, click its trash glyph twice within two seconds. The first click turns it red; clicking elsewhere or waiting two seconds cancels deletion. Similar revisions appear as a stack; expand a stack to edit, delete, reorder, or reuse an earlier version.
+
+New saved prompts keep the active template text, filled fields, selected dropdown and radio options, checked controls, edit action, provider and model, output choices, and template and manual image references. Their cards show the attached template and reference thumbnails; **Details** shows the saved field values. **Use** restores that snapshot in the panel. Editing a saved prompt changes its prompt text while retaining its snapshot. Prompts saved before this feature remain text-only; **Use** on those cards retains the panel's current context.
+
+New History cards show the visible user prompt. They carry a snapshot of the
+operation, edit action and instruction, provider and model, output choices,
+template text, field values, transparency setting, and every submitted image
+reference, including references attached to the template. The card shows its
+operation, template, and reference thumbnails; **Details** expands the
+remaining metadata. **Use** restores the prompt and these settings in the AI
+panel. It restores the saved template snapshot even if the original template
+has since changed or been deleted. Remove requests appear as **Remove
+selection** entries. Older History cards retain their previously saved,
+combined prompt text; their missing metadata cannot be reconstructed.
+
+Saved prompt and History reference images are stored in the plugin's private
+`config-references.json`. Identical image data is shared between cards in
+both tabs. As the per-file limits approach, the oldest History entries and
+their unused reference images are pruned. Images attached to a saved prompt
+remain until that prompt is deleted. The current template library keeps its
+own references in `config-library.json`; no new Photon ASAR patch is required
+beyond the existing plugin config capability.
+
+## Templates
+
+The fixed **Edit Prompts** folder contains Add, Change, and Replace. Edit a
+card to change the hidden instruction prepended when that Edit action runs.
+This system folder appears only in Templates, not in the Saved or History
+Library views.
+In the Edit tab, the label above the prompt uses the selected action's short
+hint, matching the Add, Change, or Replace tooltip.
+The three cards and folder keep their names and IDs so the action always uses
+the right instruction. They cannot be deleted, moved, or applied as ordinary
+templates. Their defaults come from `config/edit-prompts.json`; later edits
+are saved in the plugin's private Library config. Add preserves existing
+content and introduces only the requested detail. Change modifies only the
+named existing element. Replace removes the named element and inserts the
+requested replacement. The visible prompt remains the user's own text.
+Current defaults also keep the source image's unrelated faces, text,
+positions, and background, and use extra references only for the requested
+change. Unmodified older defaults update once; custom edits stay as saved.
+OpenAI receives a native alpha selection mask. Codex and Grok receive the
+source image plus a white-area guide and extra boundary instructions. The
+result preview identifies which path was used; Apply clips either result to
+the original selection.
+
+A template's text supplies hidden context before the visible prompt. Choosing a
+template leaves the prompt field intact and shows the template name and fields
+below it. **Template Fields**, to the right of **New Template**, opens a guide
+inside the Templates dialog. Valid tags use the Photon accent color in saved
+card previews, so they stand apart from ordinary template text. Tags in the
+template text define these controls:
+
+```text
+{{Subject}}
+{{View|select:Front=>front view|Side=>side view}}
+{{Light|radio:Softbox=>soft studio light|Window=>window light}}
+{{Details|multi:Dew=>dew drops|Leaves=>autumn leaves}}
+{{Finishes|multiselect:separator=; :Matte=>matte finish|Gloss=>gloss finish}}
+{{Props|check:Add a few props.}}
+{{Grain|check:Add fine grain.|Keep the finish clean.}}
+```
+
+`Subject` is a free-text field. `View` is a dropdown; `Light` is a visible
+single-choice radio group. `Details` shows independent checkboxes and inserts
+every selected snippet in the listed order, separated by a comma and space.
+`Finishes` opens a compact multi-select dropdown. It inserts every selected
+snippet in the listed order, joined by the separator after `separator=`. In
+the example, selecting both options inserts `matte finish; gloss finish`.
+Use `separator=: ` for a colon and space, `separator=; ` for a semicolon and
+space, or another literal separator. Escape a pipe as `\|` when using it as
+the separator. Both multi-select controls start empty. `Props` inserts its
+snippet only when checked. `Grain` inserts the first snippet when checked and
+the second when unchecked; the unchecked snippet is shown below that control.
+
+The word before `|` is the field label. After the control type, each choice
+can use `Short label=>prompt text`; omit `=>` when the label and inserted text
+are the same. Select and radio default to the first choice. Multiple
+checkboxes start empty; a single checkbox starts unchecked. An omitted
+unchecked snippet inserts nothing, while an explicit second snippet inserts
+that text (including the literal word `none` if written). Repeat a field
+name to reuse its value; the first definition of that name supplies its
+control. The older `{{style:oil|watercolor|ink}}` dropdown form still works.
+
+Single braces are ordinary text, so JSON such as `{"size":"1024x1024"}`
+does not create a field. Only valid `{{...}}` tags become controls. Write
+`\{{` for literal double braces. Inside a tag, escape a literal pipe as
+`\|`, an arrow as `\=>`, and a closing brace as `\}`. Use `\\` for a literal
+backslash. For example, `{{Label|select:A=>red\|blue|B=>green}}` makes a
+dropdown whose first choice inserts `red|blue`. An unfinished or invalid
+double-brace tag stays as text. Existing saved templates with single-brace
+fields are converted once when the library loads; ordinary JSON keys stay
+unchanged. Values typed into a field are inserted as written and are not
+parsed for more tags.
+
+Template cards and the editor show valid fields as inline pills with a control
+icon and field name. The saved text still uses the `{{...}}` syntax above.
+Click a pill in the editor to select it. Copy or cut it with the usual keyboard
+shortcuts, press Delete or Backspace to remove it, or drag it to move it within
+the instructions. Pasting a copied pill restores it as a field. Double-click a
+pill, or select it and press Enter, to open its field dialog. The dialog lets
+you change the label and the settings for that type. Text fields, checkboxes,
+two-state checkboxes, dropdowns, radio groups, multiple checkboxes, and
+multi-select dropdowns all have dialogs. For choice controls, edit each
+option's label and prompt text, add or remove options, and drag the handle to
+reorder them. The handle also supports Alt+Up and Alt+Down. The multi-select
+dropdown has a separator field with a live output example. The field toolbar
+opens the same dialogs to insert a new pill at the cursor. **Update field**
+replaces the selected pill; Cancel keeps the unsaved editor text. Both toolbar
+lines use the same button style and scroll horizontally in a narrow dialog.
+
+The **Convert to:** controls, **JSON** and **Text**, use the selected model to rewrite the text
+in the template editor. They are available when that model can return text.
+The JSON action requires an object; the Text action requires valid JSON
+input. A response that changes any `{{...}}` field is rejected. The result
+stays in the editor until Save, so it can be reviewed or revised. Conversion
+does not alter the template's name, references, or transparent-image setting.
+The selected model appears in brackets, followed by a dot and **Convert to:**
+at the right of the Transparent image row. Known image-only models leave the actions disabled; select a text-capable
+model to use them. Codex uses its signed-in account; Gemini and compatible
+custom endpoints use the same configured key as image generation.
+New Template opens the same editor. Cancel discards a new template without
+adding an empty card.
+
+Thirty editable premade cards are installed into All templates once per library.
+Their workflows and research sources are in [Premade templates](premade-templates.md).
+The Transparent image option has a help glyph. In Generate mode, OpenAI GPT
+Image and Codex GPT Image requests ask for transparent PNG output. The Grok
+request asks for transparency in its prompt, but xAI does not document an
+alpha-output parameter, so a transparent result is not guaranteed. Other
+providers are blocked for this option until their transparency capabilities
+are checked and implemented.
+
+Templates and manual references can hold PNG, JPEG, or WebP images. The panel converts selected images to bounded JPEG copies (maximum 512 pixels on the longest edge) and shows square cropped thumbnails. On template cards, **＋ Reference** sits at the lower left, with attached icon-sized thumbnails beside it; hovering a thumbnail opens a larger preview. The card action glyphs stay at the lower right. Template references persist with the template; manual references last for the current panel session. Removing a template thumbnail in the panel removes it from that saved template.
+
+Reference images are sent as image inputs with OpenAI, Codex, Gemini, Grok, and X API requests. Other providers reject a request with references before contacting the provider. Reference request shapes for Codex and Grok are based on the current adapters and still require live qualification with an account. Image references may affect provider cost and output.
+
+The Library, including edited templates and resized references, is stored in a separate plugin-owned `config-library.json`. Main `settings.json` holds provider preferences and model cache, not premade templates. The plugin reserves about 650 KB for reference image data and reduces older history when the Library file approaches 940 KB. Each JSON config file still has a 1 MB host limit. Full-resolution references need plugin-scoped binary storage; see [Photon host changes](photon-host-changes.md).

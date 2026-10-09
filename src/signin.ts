@@ -1,0 +1,9 @@
+import type {PanelModel} from '@photon/plugin-sdk';
+interface HostReply {error?:string;}
+interface HostBridge {request(method:string,params?:Record<string,unknown>):Promise<HostReply>;}
+function bridge(){return (globalThis as {__photonPlugin?:HostBridge}).__photonPlugin;}
+export function signInDialog(provider:'codex'|'grok',pending:{userCode:string;verificationUri:string},connected:boolean,detail?:string):PanelModel{return {title:provider==='codex'?'Sign in to Codex':'Sign in to Grok',controls:[{type:'group',id:'codeRow',children:[{type:'input',id:'code',label:'',value:pending.userCode},{type:'button',id:'copy',label:'Copy to clipboard'}]},{type:'text',text:detail??(connected?'Signed in.':'Waiting for approval…'),...(detail?{tone:'danger'}:{})},{type:'text',text:pending.verificationUri},{type:'button',id:connected?'continue':'open',tone:'primary',label:connected?'Continue':'Open browser'},{type:'button',id:'cancel',label:'Cancel'}]};}
+export async function updateSignInDialog(model:PanelModel){const host=bridge();if(!host)return;const reply=await host.request('sdk.ui.dialog',{model,update:true});if(reply?.error&&!/closed|no dialog/i.test(reply.error))return;}
+export async function copySignInCode(code:string){const host=bridge();if(host){try{const reply=await host.request('clipboard.write',{text:code});if(!reply?.error)return true;}catch{/* The page clipboard is the fallback. */}}
+ const write=(globalThis as {navigator?:{clipboard?:{writeText?:(value:string)=>Promise<void>}}}).navigator?.clipboard?.writeText;if(!write)return false;try{await write(code);return true;}catch{return false;}}
+export async function openSignInPage(url:string){const host=bridge();if(!host)return 'This window cannot open the browser.';try{const reply=await host.request('shell.open',{url});return reply?.error;}catch(error){return error instanceof Error?error.message:String(error);}}
